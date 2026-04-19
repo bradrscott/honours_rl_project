@@ -1,7 +1,7 @@
 from pettingzoo.classic import go_v5
 import numpy as np
 
-BOARD_SIZE = 9
+BOARD_SIZE = 19        # changed from 9 to 19
 NUM_EPISODES = 50
 PRINT_EVERY = 10
 
@@ -32,7 +32,6 @@ for episode in range(NUM_EPISODES):
         if termination or truncation:
             action = None
         else:
-            # ── THE FIX: only sample from LEGAL moves ──
             action_mask = observation["action_mask"]
             legal_actions = np.where(action_mask == 1)[0]
             action = np.random.choice(legal_actions)
