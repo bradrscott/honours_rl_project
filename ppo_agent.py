@@ -106,11 +106,12 @@ class WinRateCallback(BaseCallback):
 
     def _on_step(self):
         if self.num_timesteps - self.last_check >= self.check_every:
-            env = self.training_env.envs[0]
+            # SB3 wraps env in Monitor then DummyVecEnv
+            # so we need to unwrap to get to our custom attributes
+            env = self.training_env.envs[0].env
 
             if env.episode_count > 0:
                 win_rate = env.win_count / env.episode_count
-                # Log to TensorBoard
                 self.logger.record("custom/win_rate", win_rate)
                 self.logger.record("custom/total_episodes", env.episode_count)
                 print(f"  Timestep {self.num_timesteps:,} | "
@@ -119,7 +120,6 @@ class WinRateCallback(BaseCallback):
 
             self.last_check = self.num_timesteps
         return True
-
 
 # ── Step 3: Checkpoint callback ───────────────────────────────
 # Saves your model every N steps so you never lose progress
