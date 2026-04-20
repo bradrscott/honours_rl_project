@@ -1,0 +1,29 @@
+open and close environment:
+
+    conda activate rl_project
+    conda deactivate rl_project
+
+Run agent and see reults:
+    run agent code then
+    tensorboard --logdir ./logs/ppo/
+    http://localhost:6006
+
+what graphs should look like if training well PPO:
+    reward - choppy upwards trend
+    win rate - choppy upwards trend
+    tot episodes - increasing
+    episode len - choppy consistent
+    approx kl - downwards trend
+    clip frac - choppy consistent
+    clip range - straight consistent
+    entropy loss - upwards choppy trend
+    explained variance - choppy consistent
+    learning rate - striaght consistent
+    train loss - slightly decreasing consistent
+    gradient loss - choppy donwards trend
+    value loss - downwards trend
+    time - consistent
+
+
+
+
