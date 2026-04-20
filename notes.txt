@@ -7,6 +7,7 @@ Run agent and see reults:
     run agent code then
     tensorboard --logdir ./logs/ppo/
     http://localhost:6006
+    http://localhost:5001
 
 what graphs should look like if training well PPO:
     reward - choppy upwards trend
