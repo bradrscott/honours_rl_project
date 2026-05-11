@@ -2,13 +2,14 @@
 # PPO algorithm: Stable-Baselines3 (Raffin et al., 2021)
 from stable_baselines3.common.callbacks import BaseCallback
 
-# Go board environment + GUI: PettingZoo (Terry et al., 2021)
+# Go board environment: PettingZoo (Terry et al., 2021)
 from pettingzoo.classic import go_v5
 
 # Action masking support for SB3
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 
+import wandb
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -18,11 +19,11 @@ import os
 BOARD_SIZE      = 19
 TOTAL_TIMESTEPS = 10_000_000
 SAVE_EVERY      = 500_000
-LOG_DIR         = "./logs/ppo/"
 SAVE_DIR        = "./models/ppo/"
+LOG_DIR         = "./logs/ppo/"
 
-os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -37,16 +38,13 @@ class GoEnvWrapper(gym.Env):
     Action masking is used so the agent can only ever select a legal
     move — illegal moves are never sampled. PettingZoo's action_mask
     in each observation defines exactly which moves are legal.
-
-    render_mode='human' opens PettingZoo's own pygame board window
-    and auto-renders after every step (see PettingZoo go.py source).
     """
 
     def __init__(self, board_size=BOARD_SIZE, komi=7.5):
         super().__init__()
         self.board_size  = board_size
         self.komi        = komi
-        self.env         = go_v5.env(board_size=board_size, komi=komi, render_mode='human')
+        self.env         = go_v5.env(board_size=board_size, komi=komi)
         self.action_mask = None
 
         self.action_space = spaces.Discrete(board_size * board_size + 1)
@@ -107,11 +105,17 @@ class GoEnvWrapper(gym.Env):
 # CALLBACKS
 # ══════════════════════════════════════════════════════════════
 
-class WinRateCallback(BaseCallback):
-    """Prints a line to the terminal after every completed game."""
+class WandbCallback(BaseCallback):
+    """
+    Logs win rate to TensorBoard after every completed game.
+    Wandb syncs all TensorBoard graphs automatically.
+    """
 
-    def __init__(self, verbose=0):
+    def __init__(self, save_every, save_dir, verbose=0):
         super().__init__(verbose)
+        self.save_every         = save_every
+        self.save_dir           = save_dir
+        self.last_save          = 0
         self.last_episode_count = 0
 
     def _on_step(self):
@@ -120,32 +124,28 @@ class WinRateCallback(BaseCallback):
 
         if env.episode_count > self.last_episode_count:
             wr = env.win_count / env.episode_count
+
             self.logger.record('custom/win_rate',       wr)
             self.logger.record('custom/total_episodes', env.episode_count)
+            self.logger.record('custom/total_wins',     env.win_count)
+
             print(f"  Game {env.episode_count:>5,} | "
                   f"Step {self.num_timesteps:>8,} | "
                   f"Win rate: {wr:.1%}")
+
             self.last_episode_count = env.episode_count
 
-        return True
-
-
-class CheckpointCallback(BaseCallback):
-    """Saves a model checkpoint every N steps."""
-
-    def __init__(self, save_every, save_dir, verbose=0):
-        super().__init__(verbose)
-        self.save_every = save_every
-        self.save_dir   = save_dir
-        self.last_save  = 0
-
-    def _on_step(self):
+        # Save checkpoint every N steps
         if self.num_timesteps - self.last_save >= self.save_every:
             path = os.path.join(self.save_dir, f"ppo_go_{self.num_timesteps}_steps")
             self.model.save(path)
             print(f"  ✓ Checkpoint saved: {path}")
             self.last_save = self.num_timesteps
+
         return True
+
+    def _on_training_end(self):
+        wandb.finish()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -158,6 +158,27 @@ if __name__ == '__main__':
     print(f"  PPO:   Stable-Baselines3 (MaskablePPO)")
     print(f"  Board: PettingZoo go_v5")
     print("=" * 55)
+
+    # These three lines are the only wandb addition —
+    # they sync all TensorBoard graphs to wandb automatically
+    wandb.tensorboard.patch(root_logdir=LOG_DIR)
+    wandb.init(
+        project          = "honours-rl-go",
+        name             = "ppo-vs-random",
+        sync_tensorboard = True,
+        config           = {
+            "board_size":      BOARD_SIZE,
+            "total_timesteps": TOTAL_TIMESTEPS,
+            "learning_rate":   3e-4,
+            "n_steps":         2048,
+            "batch_size":      64,
+            "n_epochs":        10,
+            "gamma":           0.99,
+            "clip_range":      0.2,
+            "ent_coef":        0.01,
+            "opponent":        "random",
+        }
+    )
 
     print("\nSetting up environment...")
     env = GoEnvWrapper(board_size=BOARD_SIZE)
@@ -180,15 +201,11 @@ if __name__ == '__main__':
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")
-    print(f"TensorBoard: tensorboard --logdir {LOG_DIR}")
-    print(f"Then open:   http://localhost:6006\n")
+    print(f"Logs: https://wandb.ai\n")
 
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
-        callback=[
-            WinRateCallback(),
-            CheckpointCallback(save_every=SAVE_EVERY, save_dir=SAVE_DIR),
-        ],
+        callback=WandbCallback(save_every=SAVE_EVERY, save_dir=SAVE_DIR),
         tb_log_name="ppo_run_1"
     )
 

@@ -7,7 +7,8 @@ Run agent and see reults:
     run agent code then
     tensorboard --logdir ./logs/ppo/
     http://localhost:6006
-    http://localhost:5001
+    wandb: ⭐️ View project at https://wandb.ai/bradrscott4-university-of-cape-town/honours-rl-go
+    wandb: 🚀 View run at https://wandb.ai/bradrscott4-university-of-cape-town/honours-rl-go/runs/f5jc7yvh  
 
 what graphs should look like if training well PPO:
     reward - choppy upwards trend
