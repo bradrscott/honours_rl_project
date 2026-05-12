@@ -200,7 +200,7 @@ if __name__ == '__main__':
         gamma=0.99,
         clip_range=0.2,
         ent_coef=0.01,
-        device="cpu",
+        device="cuda",
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")
