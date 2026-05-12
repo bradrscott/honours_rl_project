@@ -9,6 +9,9 @@ from pettingzoo.classic import go_v5
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 
+# Heuristic opponent
+from randomOpponent import RandomOpponent
+
 import wandb
 import numpy as np
 import gymnasium as gym
@@ -54,6 +57,7 @@ class GoEnvWrapper(gym.Env):
             dtype=np.float32
         )
 
+        self.opponent      = RandomOpponent()
         self.episode_count = 0
         self.win_count     = 0
 
@@ -77,13 +81,12 @@ class GoEnvWrapper(gym.Env):
         # from actions where action_mask == True
         self.env.step(int(action))
 
-        # White (random opponent) plays a random legal move immediately after
+        # White opponent selects and plays a legal move via RandomOpponent class
         if not term and not trunc:
             opp_obs, _, opp_term, opp_trunc, _ = self.env.last()
             if not opp_term and not opp_trunc:
-                opp_mask  = opp_obs['action_mask']
-                legal_opp = np.where(opp_mask == 1)[0]
-                self.env.step(int(np.random.choice(legal_opp)))
+                opp_action = self.opponent.select_action(opp_obs)
+                self.env.step(opp_action)
 
         next_obs, reward, next_term, next_trunc, _ = self.env.last()
 
