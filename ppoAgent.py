@@ -17,7 +17,7 @@ import os
 
 # ── Configuration ──────────────────────────────────────────────
 BOARD_SIZE      = 19
-TOTAL_TIMESTEPS = 50_000_000
+TOTAL_TIMESTEPS = 10_000_000
 SAVE_EVERY      = 500_000
 SAVE_DIR        = "./models/ppo/"
 LOG_DIR         = "./logs/ppo/"
@@ -107,8 +107,11 @@ class GoEnvWrapper(gym.Env):
 
 class WandbCallback(BaseCallback):
     """
-    Logs win rate to TensorBoard after every completed game.
-    Wandb syncs all TensorBoard graphs automatically.
+    Logs all metrics directly to wandb with the correct timestep
+    as the x-axis.
+
+    - Custom metrics (win rate etc): logged after every completed game
+    - SB3 built-in metrics (losses etc): logged after every PPO update
     """
 
     def __init__(self, save_every, save_dir, verbose=0):
@@ -122,17 +125,19 @@ class WandbCallback(BaseCallback):
         # Unwrap DummyVecEnv → ActionMasker → GoEnvWrapper
         env = self.training_env.envs[0].env.env
 
+        # Log custom metrics after every completed game
         if env.episode_count > self.last_episode_count:
             wr = env.win_count / env.episode_count
 
-            self.logger.record('custom/win_rate',       wr)
-            self.logger.record('custom/total_episodes', env.episode_count)
-            self.logger.record('custom/total_wins',     env.win_count)
-            self.logger.dump(self.num_timesteps)
+            wandb.log({
+                'custom/win_rate':       wr,
+                'custom/total_episodes': env.episode_count,
+                'custom/total_wins':     env.win_count,
+            }, step=self.num_timesteps)
 
             print(f"  Game {env.episode_count:>5,} | "
                   f"Step {self.num_timesteps:>8,} | "
-                  f"Win rate: {wr:.1%}")
+                  f"Win rate: {wr:.1%}", flush=True)
 
             self.last_episode_count = env.episode_count
 
@@ -140,10 +145,22 @@ class WandbCallback(BaseCallback):
         if self.num_timesteps - self.last_save >= self.save_every:
             path = os.path.join(self.save_dir, f"ppo_go_{self.num_timesteps}_steps")
             self.model.save(path)
-            print(f"  ✓ Checkpoint saved: {path}")
+            print(f"  ✓ Checkpoint saved: {path}", flush=True)
             self.last_save = self.num_timesteps
 
         return True
+
+    def _on_rollout_end(self):
+        """
+        Called after every PPO update (every 2048 steps).
+        Logs all SB3 built-in metrics directly to wandb
+        with the correct timestep as the x-axis.
+        """
+        metrics = {}
+        for key, value in self.logger.name_to_value.items():
+            metrics[key] = value
+        if metrics:
+            wandb.log(metrics, step=self.num_timesteps)
 
     def _on_training_end(self):
         wandb.finish()
@@ -160,14 +177,11 @@ if __name__ == '__main__':
     print(f"  Board: PettingZoo go_v5")
     print("=" * 55)
 
-    # These three lines are the only wandb addition —
-    # they sync all TensorBoard graphs to wandb automatically
-    wandb.tensorboard.patch(root_logdir=LOG_DIR)
+    # All metrics logged directly to wandb with correct timestep
     wandb.init(
-        project          = "honours-rl-go",
-        name             = "ppo-vs-random",
-        sync_tensorboard = True,
-        config           = {
+        project = "honours-rl-go",
+        name    = "ppo-vs-random",
+        config  = {
             "board_size":      BOARD_SIZE,
             "total_timesteps": TOTAL_TIMESTEPS,
             "learning_rate":   3e-4,
@@ -198,7 +212,7 @@ if __name__ == '__main__':
         gamma=0.99,
         clip_range=0.2,
         ent_coef=0.01,
-        device="cpu",
+        device="cuda",
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")
