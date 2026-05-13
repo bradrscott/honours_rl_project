@@ -111,7 +111,8 @@ class WandbCallback(BaseCallback):
     as the x-axis.
 
     - Custom metrics (win rate etc): logged after every completed game
-    - SB3 built-in metrics (losses etc): logged after every PPO update
+    - SB3 built-in metrics (losses, rollout etc): logged at rollout
+      start and end with the correct timestep
     """
 
     def __init__(self, save_every, save_dir, verbose=0):
@@ -120,6 +121,14 @@ class WandbCallback(BaseCallback):
         self.save_dir           = save_dir
         self.last_save          = 0
         self.last_episode_count = 0
+
+    def _log_sb3_metrics(self):
+        """Log all SB3 metrics to wandb with correct timestep."""
+        metrics = {}
+        for key, value in self.logger.name_to_value.items():
+            metrics[key] = value
+        if metrics:
+            wandb.log(metrics, step=self.num_timesteps)
 
     def _on_step(self):
         # Unwrap DummyVecEnv → ActionMasker → GoEnvWrapper
@@ -150,17 +159,13 @@ class WandbCallback(BaseCallback):
 
         return True
 
+    def _on_rollout_start(self):
+        """SB3 flushes rollout metrics here — capture them for wandb."""
+        self._log_sb3_metrics()
+
     def _on_rollout_end(self):
-        """
-        Called after every PPO update (every 2048 steps).
-        Logs all SB3 built-in metrics directly to wandb
-        with the correct timestep as the x-axis.
-        """
-        metrics = {}
-        for key, value in self.logger.name_to_value.items():
-            metrics[key] = value
-        if metrics:
-            wandb.log(metrics, step=self.num_timesteps)
+        """SB3 computes training metrics here — capture them for wandb."""
+        self._log_sb3_metrics()
 
     def _on_training_end(self):
         wandb.finish()
@@ -177,7 +182,6 @@ if __name__ == '__main__':
     print(f"  Board: PettingZoo go_v5")
     print("=" * 55)
 
-    # All metrics logged directly to wandb with correct timestep
     wandb.init(
         project = "honours-rl-go",
         name    = "ppo-vs-random",
