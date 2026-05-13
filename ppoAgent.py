@@ -130,7 +130,7 @@ class WandbCallback(BaseCallback):
 
     def _on_step(self):
         # Unwrap DummyVecEnv → ActionMasker → Monitor → GoEnvWrapper
-        env = self.training_env.envs[0].env.env.env
+        env = self.training_env.envs[0].env.env.env.env
 
         if env.episode_count > self.last_episode_count:
             wr = env.win_count / env.episode_count
@@ -237,7 +237,7 @@ if __name__ == '__main__':
         obs, _ = env.reset()
         done   = False
         while not done:
-            action, _ = model.predict(obs, deterministic=True, action_masks=env.env.get_action_mask())
+            action, _ = model.predict(obs, deterministic=True, action_masks=env.env.env.get_action_mask())
             obs, reward, term, trunc, _ = env.step(action)
             done = term or trunc
         if reward > 0:
