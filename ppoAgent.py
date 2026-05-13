@@ -9,9 +9,6 @@ from pettingzoo.classic import go_v5
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 
-# Heuristic opponent
-from randomOpponent import RandomOpponent
-
 import wandb
 import numpy as np
 import gymnasium as gym
@@ -20,7 +17,7 @@ import os
 
 # ── Configuration ──────────────────────────────────────────────
 BOARD_SIZE      = 19
-TOTAL_TIMESTEPS = 10_000_000
+TOTAL_TIMESTEPS = 50_000_000
 SAVE_EVERY      = 500_000
 SAVE_DIR        = "./models/ppo/"
 LOG_DIR         = "./logs/ppo/"
@@ -57,7 +54,6 @@ class GoEnvWrapper(gym.Env):
             dtype=np.float32
         )
 
-        self.opponent      = RandomOpponent()
         self.episode_count = 0
         self.win_count     = 0
 
@@ -81,12 +77,13 @@ class GoEnvWrapper(gym.Env):
         # from actions where action_mask == True
         self.env.step(int(action))
 
-        # White opponent selects and plays a legal move via RandomOpponent class
+        # White (random opponent) plays a random legal move immediately after
         if not term and not trunc:
             opp_obs, _, opp_term, opp_trunc, _ = self.env.last()
             if not opp_term and not opp_trunc:
-                opp_action = self.opponent.select_action(opp_obs)
-                self.env.step(opp_action)
+                opp_mask  = opp_obs['action_mask']
+                legal_opp = np.where(opp_mask == 1)[0]
+                self.env.step(int(np.random.choice(legal_opp)))
 
         next_obs, reward, next_term, next_trunc, _ = self.env.last()
 
@@ -131,6 +128,7 @@ class WandbCallback(BaseCallback):
             self.logger.record('custom/win_rate',       wr)
             self.logger.record('custom/total_episodes', env.episode_count)
             self.logger.record('custom/total_wins',     env.win_count)
+            self.logger.dump(self.num_timesteps)
 
             print(f"  Game {env.episode_count:>5,} | "
                   f"Step {self.num_timesteps:>8,} | "
@@ -200,7 +198,7 @@ if __name__ == '__main__':
         gamma=0.99,
         clip_range=0.2,
         ent_coef=0.01,
-        device="cuda",
+        device="cpu",
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")
@@ -223,7 +221,7 @@ if __name__ == '__main__':
         obs, _ = env.reset()
         done   = False
         while not done:
-            action, _ = model.predict(obs, deterministic=True, action_masks=env.get_action_mask())
+            action, _ = model.predict(obs, deterministic=True, action_masks=env.env.get_action_mask())
             obs, reward, term, trunc, _ = env.step(action)
             done = term or trunc
         if reward > 0:
