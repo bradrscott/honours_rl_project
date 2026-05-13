@@ -199,7 +199,7 @@ if __name__ == '__main__':
     print("\nSetting up environment...")
     env = GoEnvWrapper(board_size=BOARD_SIZE)
     env = Monitor(env)
-    env = ActionMasker(env, lambda e: e.get_action_mask())
+    env = ActionMasker(env, lambda e: e.env.get_action_mask())
     print("Environment ready!\n")
 
     model = MaskablePPO(
