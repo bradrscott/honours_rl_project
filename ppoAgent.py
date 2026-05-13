@@ -1,6 +1,7 @@
 # ── Imports ───────────────────────────────────────────────────
 # PPO algorithm: Stable-Baselines3 (Raffin et al., 2021)
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.monitor import Monitor
 
 # Go board environment: PettingZoo (Terry et al., 2021)
 from pettingzoo.classic import go_v5
@@ -107,12 +108,9 @@ class GoEnvWrapper(gym.Env):
 
 class WandbCallback(BaseCallback):
     """
-    Logs all metrics directly to wandb with the correct timestep
-    as the x-axis.
+    Logs all metrics directly to wandb with the correct timestep.
 
-    - Custom metrics (win rate etc): logged after every completed game
-    - SB3 built-in metrics (losses, rollout etc): logged at rollout
-      start and end with the correct timestep
+    Wrapper stack: DummyVecEnv → ActionMasker → Monitor → GoEnvWrapper
     """
 
     def __init__(self, save_every, save_dir, verbose=0):
@@ -131,10 +129,9 @@ class WandbCallback(BaseCallback):
             wandb.log(metrics, step=self.num_timesteps)
 
     def _on_step(self):
-        # Unwrap DummyVecEnv → ActionMasker → GoEnvWrapper
-        env = self.training_env.envs[0].env.env
+        # Unwrap DummyVecEnv → ActionMasker → Monitor → GoEnvWrapper
+        env = self.training_env.envs[0].env.env.env
 
-        # Log custom metrics after every completed game
         if env.episode_count > self.last_episode_count:
             wr = env.win_count / env.episode_count
 
@@ -160,11 +157,11 @@ class WandbCallback(BaseCallback):
         return True
 
     def _on_rollout_start(self):
-        """SB3 flushes rollout metrics here — capture them for wandb."""
+        """SB3 flushes rollout metrics here — captures ep_rew_mean, ep_len_mean."""
         self._log_sb3_metrics()
 
     def _on_rollout_end(self):
-        """SB3 computes training metrics here — capture them for wandb."""
+        """SB3 computes training metrics here — captures losses, kl, etc."""
         self._log_sb3_metrics()
 
     def _on_training_end(self):
@@ -201,6 +198,7 @@ if __name__ == '__main__':
 
     print("\nSetting up environment...")
     env = GoEnvWrapper(board_size=BOARD_SIZE)
+    env = Monitor(env)
     env = ActionMasker(env, lambda e: e.get_action_mask())
     print("Environment ready!\n")
 
