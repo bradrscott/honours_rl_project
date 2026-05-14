@@ -28,6 +28,17 @@ what graphs should look like if training well PPO:
 
 what graphs should look if Feudal training well:
 
+win rate — choppy upwards trend (should recover faster than PPO after strategy shifts)
+loss/worker — decreasing trend
+loss/manager — decreasing trend
+loss/value_worker — decreasing trend
+loss/value_manager — decreasing trend
+worker/entropy — upwards choppy trend
+worker/advantage — choppy consistent around 0
+worker/intrinsic_reward — should stabilise over time
+manager/cosines — upwards trend (Manager getting better at setting useful goals)
+manager/advantage — choppy consistent around 0
+
 
 hpc commands:
 
