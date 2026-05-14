@@ -35,7 +35,7 @@ ENTROPY_COEF   = 0.01    # Entropy bonus
 LEARNING_RATE  = 3e-4
 NUM_STEPS      = 400     # Steps per rollout (K from paper)
 
-TOTAL_TIMESTEPS = 50_000_000
+TOTAL_TIMESTEPS = 10_000_000
 SAVE_EVERY      = 500_000
 SAVE_DIR        = "./models/feudal/"
 LOG_DIR         = "./logs/feudal/"
@@ -198,6 +198,10 @@ def train():
             dist, goals, states, value_m, value_w = model(
                 obs_t, goals, states, mask_t, action_mask_t
             )
+            # Detach all stateful tensors after each step
+            model.repackage_hidden()
+            goals  = [g.detach() for g in goals]
+            states = [s.detach() for s in states]
 
             # Sample action
             action   = dist.sample()
@@ -251,10 +255,6 @@ def train():
         optimizer.step()
 
         # ── Logging ───────────────────────────────────────────
-        # Always log training metrics after every update
-        wandb.log(metrics, step=global_step)
-
-        # Log win rate after every completed game
         if env.episode_count > last_ep_count:
             wr = env.win_count / env.episode_count
             print(f"  Game {env.episode_count:>5,} | "
@@ -264,6 +264,7 @@ def train():
                 'custom/win_rate':       wr,
                 'custom/total_episodes': env.episode_count,
                 'custom/total_wins':     env.win_count,
+                **metrics,
             }, step=global_step)
             last_ep_count = env.episode_count
 

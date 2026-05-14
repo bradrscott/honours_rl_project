@@ -26,37 +26,41 @@ what graphs should look like if training well PPO:
     value loss - downwards trend
     time - consistent
 
+what graphs should look if Feudal training well:
+
+
 hpc commands:
 
-# Connect to HPC
-ssh sctbra008@hpc.uct.ac.za
+    # Connect to HPC
+    ssh sctbra008@hpc.uct.ac.za
 
-# Navigate to project
-cd ~/HonoursProject
+    # Navigate to project
+    cd ~/HonoursProject
 
-# Check files
-ls
+    # Check files
+    ls
 
-# Upload file from Mac (run from Mac terminal)
-scp /Users/bradscott/Desktop/HonoursProject/ppoAgent.py sctbra008@hpc.uct.ac.za:/home/sctbra008/HonoursProject/
+    # Upload file from Mac (run from Mac terminal)
+    scp /Users/bradscott/Desktop/HonoursProject/ppoAgent.py sctbra008@hpc.uct.ac.za:/home/sctbra008/HonoursProject/
 
-# Check file updated correctly
-cat ~/HonoursProject/ppoAgent.py | head -25
+    # Check file updated correctly
+    cat ~/HonoursProject/ppoAgent.py | head -25
 
-# Submit job
-sbatch run_ppo_gpu.sh
+    # Submit job
+    sbatch run_ppo_gpu.sh
+    sbatch run_feudal_gpu.sh
 
-# Check job status
-squeue -u sctbra008
+    # Check job status
+    squeue -u sctbra008
 
-# Check job details
-scontrol show job JOBID
+    # Check job details
+    scontrol show job JOBID
 
-# Watch terminal output
-tail -f slurm-JOBID.out
+    # Watch terminal output
+    tail -f slurm-JOBID.out
 
-# Cancel job
-scancel JOBID
+    # Cancel job
+    scancel JOBID
 
 
 

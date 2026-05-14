@@ -25,10 +25,10 @@ class DilatedLSTM(nn.Module):
         """Only the current dilation slice is updated; output is
         pooled across all r previous outputs."""
         d_idx    = self.dilation_idx
-        hx, cx   = hidden
+        hx, cx   = hidden[0].clone(), hidden[1].clone()
 
         hx[:, d_idx], cx[:, d_idx] = self.rnn(
-            state, (hx[:, d_idx], cx[:, d_idx])
+            state, (hidden[0][:, d_idx], hidden[1][:, d_idx])
         )
 
         detached_hx = hx[:, self.masked_idx(d_idx)].detach()

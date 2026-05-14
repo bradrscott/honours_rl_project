@@ -379,6 +379,12 @@ def feudal_loss(storage, next_v_m, next_v_w, gamma_m, gamma_w, alpha, entropy_co
     ret_m = next_v_m
     ret_w = next_v_w
 
+    # Initialise return lists before filling them
+    storage.ret_m = [None] * num_steps
+    storage.ret_w = [None] * num_steps
+    if "ret_m" not in storage.keys:
+        storage.keys += ["ret_m", "ret_w"]
+
     storage.placeholder()
 
     for i in reversed(range(num_steps)):
