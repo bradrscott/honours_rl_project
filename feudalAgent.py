@@ -6,9 +6,9 @@
 from pettingzoo.classic import go_v5
 
 # Heuristic opponent
-from random_opponent import RandomOpponent
+from randomOpponent import RandomOpponent
 
-from feudal_network import FeudalNetwork, Storage, feudal_loss
+from feudalNetwork import FeudalNetwork, Storage, feudal_loss
 
 import wandb
 import torch
@@ -251,6 +251,10 @@ def train():
         optimizer.step()
 
         # ── Logging ───────────────────────────────────────────
+        # Always log training metrics after every update
+        wandb.log(metrics, step=global_step)
+
+        # Log win rate after every completed game
         if env.episode_count > last_ep_count:
             wr = env.win_count / env.episode_count
             print(f"  Game {env.episode_count:>5,} | "
@@ -260,7 +264,6 @@ def train():
                 'custom/win_rate':       wr,
                 'custom/total_episodes': env.episode_count,
                 'custom/total_wins':     env.win_count,
-                **metrics,
             }, step=global_step)
             last_ep_count = env.episode_count
 

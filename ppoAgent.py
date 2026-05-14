@@ -10,6 +10,9 @@ from pettingzoo.classic import go_v5
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 
+# Heuristic opponent
+from randomOpponent import RandomOpponent
+
 import wandb
 import numpy as np
 import gymnasium as gym
@@ -34,7 +37,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 class GoEnvWrapper(gym.Env):
     """
     Wraps PettingZoo's two-agent Go into a single-agent Gymnasium env.
-    Our agent plays Black; White plays a random legal move each turn.
+    Our agent plays Black; White plays via the RandomOpponent class.
 
     Action masking is used so the agent can only ever select a legal
     move — illegal moves are never sampled. PettingZoo's action_mask
@@ -47,6 +50,7 @@ class GoEnvWrapper(gym.Env):
         self.komi        = komi
         self.env         = go_v5.env(board_size=board_size, komi=komi)
         self.action_mask = None
+        self.opponent    = RandomOpponent()
 
         self.action_space = spaces.Discrete(board_size * board_size + 1)
         self.observation_space = spaces.Box(
@@ -68,7 +72,6 @@ class GoEnvWrapper(gym.Env):
         return obs['observation'].flatten().astype(np.float32)
 
     def get_action_mask(self):
-        """Returns the current legal action mask to MaskablePPO."""
         return self.action_mask
 
     def step(self, action):
@@ -78,17 +81,14 @@ class GoEnvWrapper(gym.Env):
         # from actions where action_mask == True
         self.env.step(int(action))
 
-        # White (random opponent) plays a random legal move immediately after
+        # White opponent plays a legal move via RandomOpponent class
         if not term and not trunc:
             opp_obs, _, opp_term, opp_trunc, _ = self.env.last()
             if not opp_term and not opp_trunc:
-                opp_mask  = opp_obs['action_mask']
-                legal_opp = np.where(opp_mask == 1)[0]
-                self.env.step(int(np.random.choice(legal_opp)))
+                opp_action = self.opponent.select_action(opp_obs)
+                self.env.step(opp_action)
 
         next_obs, reward, next_term, next_trunc, _ = self.env.last()
-
-        # Update action mask for next step
         self.action_mask = next_obs['action_mask'].astype(bool)
 
         if next_term or next_trunc:
@@ -102,15 +102,24 @@ class GoEnvWrapper(gym.Env):
         self.env.close()
 
 
+def get_go_env(vec_env):
+    """Safely unwrap to GoEnvWrapper regardless of wrapper depth."""
+    env = vec_env.envs[0]
+    while not isinstance(env, GoEnvWrapper):
+        env = env.env
+    return env
+
+
 # ══════════════════════════════════════════════════════════════
 # CALLBACKS
 # ══════════════════════════════════════════════════════════════
 
 class WandbCallback(BaseCallback):
     """
-    Logs all metrics directly to wandb with the correct timestep.
-
-    Wrapper stack: DummyVecEnv → ActionMasker → Monitor → GoEnvWrapper
+    - sync_tensorboard=True handles ALL SB3 graphs including
+      ep_rew_mean and ep_len_mean from Monitor automatically.
+    - Custom win rate logged directly with correct timestep.
+    - Checkpoints saved every N steps.
     """
 
     def __init__(self, save_every, save_dir, verbose=0):
@@ -120,21 +129,11 @@ class WandbCallback(BaseCallback):
         self.last_save          = 0
         self.last_episode_count = 0
 
-    def _log_sb3_metrics(self):
-        """Log all SB3 metrics to wandb with correct timestep."""
-        metrics = {}
-        for key, value in self.logger.name_to_value.items():
-            metrics[key] = value
-        if metrics:
-            wandb.log(metrics, step=self.num_timesteps)
-
     def _on_step(self):
-        # Unwrap DummyVecEnv → ActionMasker → Monitor → GoEnvWrapper
-        env = self.training_env.envs[0].env.env.env.env
+        env = get_go_env(self.training_env)
 
         if env.episode_count > self.last_episode_count:
             wr = env.win_count / env.episode_count
-
             wandb.log({
                 'custom/win_rate':       wr,
                 'custom/total_episodes': env.episode_count,
@@ -147,7 +146,6 @@ class WandbCallback(BaseCallback):
 
             self.last_episode_count = env.episode_count
 
-        # Save checkpoint every N steps
         if self.num_timesteps - self.last_save >= self.save_every:
             path = os.path.join(self.save_dir, f"ppo_go_{self.num_timesteps}_steps")
             self.model.save(path)
@@ -155,14 +153,6 @@ class WandbCallback(BaseCallback):
             self.last_save = self.num_timesteps
 
         return True
-
-    def _on_rollout_start(self):
-        """SB3 flushes rollout metrics here — captures ep_rew_mean, ep_len_mean."""
-        self._log_sb3_metrics()
-
-    def _on_rollout_end(self):
-        """SB3 computes training metrics here — captures losses, kl, etc."""
-        self._log_sb3_metrics()
 
     def _on_training_end(self):
         wandb.finish()
@@ -177,12 +167,15 @@ if __name__ == '__main__':
     print(f"  PPO Agent — Go {BOARD_SIZE}x{BOARD_SIZE}")
     print(f"  PPO:   Stable-Baselines3 (MaskablePPO)")
     print(f"  Board: PettingZoo go_v5")
+    print(f"  Opponent: RandomOpponent")
     print("=" * 55)
 
+    wandb.tensorboard.patch(root_logdir=LOG_DIR)
     wandb.init(
-        project = "honours-rl-go",
-        name    = "ppo-vs-random",
-        config  = {
+        project          = "honours-rl-go",
+        name             = "ppo-vs-random",
+        sync_tensorboard = True,
+        config           = {
             "board_size":      BOARD_SIZE,
             "total_timesteps": TOTAL_TIMESTEPS,
             "learning_rate":   3e-4,
@@ -230,14 +223,14 @@ if __name__ == '__main__':
     model.save(final_path)
     print(f"\n  ✓ Final model saved: {final_path}")
 
-    # Final evaluation
     print("\nRunning final evaluation (50 games)...")
     wins = 0
     for _ in range(50):
         obs, _ = env.reset()
         done   = False
         while not done:
-            action, _ = model.predict(obs, deterministic=True, action_masks=env.env.env.get_action_mask())
+            action, _ = model.predict(obs, deterministic=True,
+                                      action_masks=env.env.get_action_mask())
             obs, reward, term, trunc, _ = env.step(action)
             done = term or trunc
         if reward > 0:
