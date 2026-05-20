@@ -10,35 +10,15 @@ from randomOpponent import RandomOpponent
 
 from feudalNetwork import FeudalNetwork, Storage, feudal_loss
 
+# ── Config ─────────────────────────────────────────────────────
+from config_feudal import *
+
 import wandb
 import torch
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 import os
-
-# ── Configuration ──────────────────────────────────────────────
-BOARD_SIZE     = 19
-OBS_DIM        = BOARD_SIZE * BOARD_SIZE * 17   # 6137
-N_ACTIONS      = BOARD_SIZE * BOARD_SIZE + 1    # 362
-
-# FuN hyperparameters
-HIDDEN_DIM_M   = 256     # Manager hidden dimension (d)
-HIDDEN_DIM_W   = 16      # Worker hidden dimension (k)
-TIME_HORIZON   = 10      # Manager time horizon (c)
-DILATION       = 10      # Dilated LSTM radius (r)
-EPS            = 0.1     # Random goal probability (exploration)
-ALPHA          = 0.5     # Intrinsic reward mixing coefficient
-GAMMA_M        = 0.99    # Manager discount factor
-GAMMA_W        = 0.95    # Worker discount factor
-ENTROPY_COEF   = 0.01    # Entropy bonus
-LEARNING_RATE  = 3e-4
-NUM_STEPS      = 400     # Steps per rollout (K from paper)
-
-TOTAL_TIMESTEPS = 10_000_000
-SAVE_EVERY      = 500_000
-SAVE_DIR        = "./models/feudal/"
-LOG_DIR         = "./logs/feudal/"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -134,7 +114,6 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n  Device: {device}")
 
-    # Wandb — mirrors TensorBoard exactly
     wandb.tensorboard.patch(root_logdir=LOG_DIR)
     wandb.init(
         project          = "honours-rl-go",
@@ -157,25 +136,23 @@ def train():
         }
     )
 
-    # Environment and model
     env   = GoEnvWrapper(board_size=BOARD_SIZE)
     model = FeudalNetwork(
-        input_dim        = OBS_DIM,
-        n_actions        = N_ACTIONS,
+        input_dim          = OBS_DIM,
+        n_actions          = N_ACTIONS,
         hidden_dim_manager = HIDDEN_DIM_M,
         hidden_dim_worker  = HIDDEN_DIM_W,
-        time_horizon     = TIME_HORIZON,
-        dilation         = DILATION,
-        eps              = EPS,
-        num_workers      = 1,
-        device           = str(device),
+        time_horizon       = TIME_HORIZON,
+        dilation           = DILATION,
+        eps                = EPS,
+        num_workers        = 1,
+        device             = str(device),
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     print(f"\nTraining for {TOTAL_TIMESTEPS:,} timesteps...")
     print(f"Logs: https://wandb.ai\n")
 
-    # Initialise environment and model state
     obs, _          = env.reset()
     goals, states, init_masks = model.init_obj()
     masks           = init_masks
@@ -190,37 +167,31 @@ def train():
 
         # ── Collect NUM_STEPS rollout ─────────────────────────
         for step in range(NUM_STEPS):
-            obs_t        = obs_to_tensor(obs, device)
-            mask_t       = torch.FloatTensor([[0.0 if done else 1.0]]).to(device)
+            obs_t         = obs_to_tensor(obs, device)
+            mask_t        = torch.FloatTensor([[0.0 if done else 1.0]]).to(device)
             action_mask_t = torch.BoolTensor(env.get_action_mask()).unsqueeze(0).to(device)
 
-            # Forward pass
             dist, goals, states, value_m, value_w = model(
                 obs_t, goals, states, mask_t, action_mask_t
             )
-            # Detach all stateful tensors after each step
             model.repackage_hidden()
             goals  = [g.detach() for g in goals]
             states = [s.detach() for s in states]
 
-            # Sample action
             action   = dist.sample()
             log_prob = dist.log_prob(action)
             entropy  = dist.entropy()
 
-            # Step environment
             next_obs, reward, terminated, truncated, _ = env.step(action.item())
             done = terminated or truncated
 
-            # Intrinsic reward and Manager loss signal
             masks.append(mask_t)
             if len(masks) > (2 * TIME_HORIZON + 1):
                 masks.pop(0)
 
-            r_i         = model.intrinsic_reward(states, goals, masks)
-            s_goal_cos  = model.state_goal_cosine(states, goals, masks)
+            r_i        = model.intrinsic_reward(states, goals, masks)
+            s_goal_cos = model.state_goal_cosine(states, goals, masks)
 
-            # Store experience
             storage.add({
                 'r':          torch.FloatTensor([[reward]]).to(device),
                 'r_i':        r_i,
@@ -251,7 +222,7 @@ def train():
 
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
         optimizer.step()
 
         # ── Logging ───────────────────────────────────────────
@@ -275,16 +246,15 @@ def train():
             print(f"  ✓ Checkpoint saved: {path}")
             last_save = global_step
 
-        # Detach hidden states to prevent gradient accumulation
         model.repackage_hidden()
         storage.reset()
 
-    # Final save
+    # ── Final save ────────────────────────────────────────────
     final_path = os.path.join(SAVE_DIR, "feudal_go_final.pt")
     torch.save(model.state_dict(), final_path)
     print(f"\n  ✓ Final model saved: {final_path}")
 
-    # Final evaluation
+    # ── Final evaluation ──────────────────────────────────────
     print("\nRunning final evaluation (50 games)...")
     model.eval()
     wins = 0
@@ -293,8 +263,8 @@ def train():
         done           = False
         eval_goals, eval_states, eval_masks = model.init_obj()
         while not done:
-            obs_t        = obs_to_tensor(obs, device)
-            mask_t       = torch.FloatTensor([[1.0]]).to(device)
+            obs_t         = obs_to_tensor(obs, device)
+            mask_t        = torch.FloatTensor([[1.0]]).to(device)
             action_mask_t = torch.BoolTensor(env.get_action_mask()).unsqueeze(0).to(device)
             with torch.no_grad():
                 dist, eval_goals, eval_states, _, _ = model(

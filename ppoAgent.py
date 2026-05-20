@@ -1,30 +1,19 @@
 # ── Imports ───────────────────────────────────────────────────
-# PPO algorithm: Stable-Baselines3 (Raffin et al., 2021)
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
-
-# Go board environment: PettingZoo (Terry et al., 2021)
 from pettingzoo.classic import go_v5
-
-# Action masking support for SB3
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-
-# Heuristic opponent
 from randomOpponent import RandomOpponent
+
+# ── Config ─────────────────────────────────────────────────────
+from config_ppo import *
 
 import wandb
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 import os
-
-# ── Configuration ──────────────────────────────────────────────
-BOARD_SIZE      = 19
-TOTAL_TIMESTEPS = 10_000_000
-SAVE_EVERY      = 500_000
-SAVE_DIR        = "./models/ppo/"
-LOG_DIR         = "./logs/ppo/"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -38,10 +27,8 @@ class GoEnvWrapper(gym.Env):
     """
     Wraps PettingZoo's two-agent Go into a single-agent Gymnasium env.
     Our agent plays Black; White plays via the RandomOpponent class.
-
-    Action masking is used so the agent can only ever select a legal
-    move — illegal moves are never sampled. PettingZoo's action_mask
-    in each observation defines exactly which moves are legal.
+    Action masking ensures only legal moves are ever selected.
+    Reward is sparse: +1 win, -1 loss at game end only.
     """
 
     def __init__(self, board_size=BOARD_SIZE, komi=7.5):
@@ -77,11 +64,8 @@ class GoEnvWrapper(gym.Env):
     def step(self, action):
         obs, _, term, trunc, _ = self.env.last()
 
-        # Action is guaranteed legal — MaskablePPO only samples
-        # from actions where action_mask == True
         self.env.step(int(action))
 
-        # White opponent plays a legal move via RandomOpponent class
         if not term and not trunc:
             opp_obs, _, opp_term, opp_trunc, _ = self.env.last()
             if not opp_term and not opp_trunc:
@@ -115,12 +99,6 @@ def get_go_env(vec_env):
 # ══════════════════════════════════════════════════════════════
 
 class WandbCallback(BaseCallback):
-    """
-    - sync_tensorboard=True handles ALL SB3 graphs including
-      ep_rew_mean and ep_len_mean from Monitor automatically.
-    - Custom win rate logged directly with correct timestep.
-    - Checkpoints saved every N steps.
-    """
 
     def __init__(self, save_every, save_dir, verbose=0):
         super().__init__(verbose)
@@ -178,13 +156,16 @@ if __name__ == '__main__':
         config           = {
             "board_size":      BOARD_SIZE,
             "total_timesteps": TOTAL_TIMESTEPS,
-            "learning_rate":   3e-4,
-            "n_steps":         2048,
-            "batch_size":      64,
-            "n_epochs":        10,
-            "gamma":           0.99,
-            "clip_range":      0.2,
-            "ent_coef":        0.01,
+            "learning_rate":   LEARNING_RATE,
+            "n_steps":         N_STEPS,
+            "batch_size":      BATCH_SIZE,
+            "n_epochs":        N_EPOCHS,
+            "gamma":           GAMMA,
+            "gae_lambda":      GAE_LAMBDA,
+            "clip_range":      CLIP_RANGE,
+            "ent_coef":        ENT_COEF,
+            "vf_coef":         VF_COEF,
+            "net_arch":        NET_ARCH,
             "opponent":        "random",
         }
     )
@@ -199,24 +180,27 @@ if __name__ == '__main__':
         "MlpPolicy",
         env,
         verbose=0,
-        tensorboard_log=LOG_DIR,
-        learning_rate=3e-4,
-        n_steps=2048,
-        batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        clip_range=0.2,
-        ent_coef=0.01,
-        device="cuda",
+        tensorboard_log = LOG_DIR,
+        learning_rate   = LEARNING_RATE,
+        n_steps         = N_STEPS,
+        batch_size      = BATCH_SIZE,
+        n_epochs        = N_EPOCHS,
+        gamma           = GAMMA,
+        gae_lambda      = GAE_LAMBDA,
+        clip_range      = CLIP_RANGE,
+        ent_coef        = ENT_COEF,
+        vf_coef         = VF_COEF,
+        policy_kwargs   = dict(net_arch=NET_ARCH),
+        device          = "cuda",
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")
     print(f"Logs: https://wandb.ai\n")
 
     model.learn(
-        total_timesteps=TOTAL_TIMESTEPS,
-        callback=WandbCallback(save_every=SAVE_EVERY, save_dir=SAVE_DIR),
-        tb_log_name="ppo_run_1"
+        total_timesteps = TOTAL_TIMESTEPS,
+        callback        = WandbCallback(save_every=SAVE_EVERY, save_dir=SAVE_DIR),
+        tb_log_name     = "ppo_run_1"
     )
 
     final_path = os.path.join(SAVE_DIR, "ppo_go_final")

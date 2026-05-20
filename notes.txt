@@ -46,7 +46,8 @@ hpc commands:
     ssh sctbra008@hpc.uct.ac.za
 
     # Navigate to project
-    cd ~/HonoursProject
+    cd /home/sctbra008/HonoursProject
+    cd /scratch/sctbra008/HonoursProject
 
     # Check files
     ls
