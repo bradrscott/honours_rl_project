@@ -3,9 +3,6 @@
 # Edit values here before a run. Import into feudalAgent.py with:
 #
 #   from config_feudal import *
-#
-# Then remove or comment out the matching constants at the top
-# of feudalAgent.py so these values take over.
 # ══════════════════════════════════════════════════════════════
 
 # ── Environment ───────────────────────────────────────────────
@@ -21,69 +18,64 @@ LOG_DIR         = "./logs/feudal/"
 
 # ── FuN hyperparameters ───────────────────────────────────────
 
-# learning_rate: shared across manager and worker.
-#   FuN is more sensitive to this than PPO — two loss streams compound errors.
-#   Too high → both worker and manager losses diverge (unlearning).
-#   Try: 3e-4 → 1e-4 → 5e-5 if you see reward/win rate dropping.
-LEARNING_RATE   = 3e-4
+# learning_rate: reduced from 3e-4 to 1e-4.
+#   FuN has two loss streams (manager + worker) compounding gradient
+#   updates — more sensitive than PPO. 3e-4 was causing win rate to
+#   decline. Same fix that worked for PPO.
+LEARNING_RATE   = 1e-4
 
 # hidden_dim_manager (d): manager LSTM hidden dimension.
-#   Too small → manager can't model board-level strategy, cosines stay low.
-#   Try: 256 → 512 if manager/cosines graph doesn't trend up.
+#   Keep at 256 — perception already maps 6137 → 256 → d.
+#   Increasing doesn't help much; decreasing loses capacity.
 HIDDEN_DIM_M    = 256
 
 # hidden_dim_worker (k): worker embedding dimension.
-#   Increasing this scales compute — only touch if worker loss won't converge.
-#   Try: 16 → 32.
+#   Keep at 16 — worker LSTM is already LSTMCell(256, 16*362=5792).
+#   Increasing k would double checkpoint size (already 545MB).
 HIDDEN_DIM_W    = 16
 
 # time_horizon (c): how many steps the manager commits to a goal.
-#   Too short → goals change too fast for worker to follow, cosines stay near 0.
-#   Too long  → manager is too slow to adapt mid-game.
-#   Try: 10 → 15 for Go (long games need longer manager horizon).
-TIME_HORIZON    = 10
+#   THIS WAS THE KEY PROBLEM. At c=10 in 300-move Go games, the
+#   manager was changing goals every 10 steps — too fast for the
+#   worker to follow, causing cosines to stay near 0.
+#   Increased to 15 to give the worker more time to follow each goal.
+#   Try: 10 → 15 → 20 if cosines still don't trend upward.
+TIME_HORIZON    = 15
 
-# dilation (r): dilated LSTM radius — sets manager's effective memory window.
-#   Should be close to or equal to TIME_HORIZON.
-#   Try: keep in sync with TIME_HORIZON.
-DILATION        = 10
+# dilation (r): dilated LSTM radius.
+#   Always keep in sync with TIME_HORIZON.
+DILATION        = 15
 
 # eps: probability of a random goal (manager exploration).
-#   Higher early in training = more state space explored by worker.
-#   Too high late in training → manager never commits to a useful goal.
-#   Try: 0.1 → 0.2 early, then anneal down manually once win rate rises.
 EPS             = 0.1
 
 # alpha: intrinsic reward mixing coefficient.
-#   Controls how strongly the worker is pulled toward manager goals.
-#   Too low  → worker ignores manager, hierarchical structure breaks down.
-#   Too high → worker over-constrained, can't react to local board threats.
-#   Try: 0.5 → 0.7 if cosines are low (worker not following goals).
-ALPHA           = 0.5
+#   Increased from 0.5 to 0.7 to pull the worker more strongly
+#   toward manager goals. Helps fix the low cosines problem.
+#   Too high → worker over-constrained, ignores local board threats.
+#   Try: 0.5 → 0.7 → 0.9 if cosines still near 0.
+ALPHA           = 0.7
 
 # gamma_manager: manager discount factor.
-#   Keep high — manager needs to value game outcomes far in the future.
-#   Try: 0.99 → 0.995 if manager value loss won't converge.
-GAMMA_M         = 0.99
+#   Increased from 0.99 to 0.995 — Go games are 200-300 moves,
+#   manager needs to value outcomes further in the future.
+GAMMA_M         = 0.995
 
 # gamma_worker: worker discount factor.
-#   Slightly lower than manager so worker focuses on immediate sub-goals.
-#   Try: 0.95 → 0.97 → 0.90 depending on worker value loss behaviour.
+#   Slightly lower than manager — worker focuses on immediate sub-goals.
 GAMMA_W         = 0.95
 
 # entropy_coef: entropy bonus for worker action distribution.
-#   Critical in hierarchical agents — worker entropy collapsing is common.
-#   Try: 0.01 → 0.02 → 0.05 if worker entropy graph drops sharply.
-ENTROPY_COEF    = 0.01
+#   Increased from 0.01 to 0.02 — worker entropy was trending
+#   downward, risking collapse to a narrow action set.
+ENTROPY_COEF    = 0.02
 
 # num_steps (K): steps collected per rollout.
-#   Go has sparse, delayed rewards — more steps = better return estimates.
-#   Try: 400 → 600 → 800 if losses are very noisy.
-NUM_STEPS       = 400
+#   Increased from 400 to 600 — more steps gives better return
+#   estimates for sparse Go rewards.
+NUM_STEPS       = 600
 
 # grad_clip: max norm for gradient clipping.
-#   Prevents exploding gradients, especially important in hierarchical agents.
-#   Too high → gradients can explode, losses diverge.
-#   Too low  → updates become too small, learning slows.
-#   Try: 0.5 → 0.25 if losses are spiking or diverging.
+#   Keep at 0.5 — important for hierarchical agents where
+#   manager and worker gradients can compound.
 GRAD_CLIP       = 0.5

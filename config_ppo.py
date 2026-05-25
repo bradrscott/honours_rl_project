@@ -23,7 +23,7 @@ LEARNING_RATE   = 1e-4
 
 # n_steps: covers ~10 full Go games per update for better
 #   credit assignment with sparse rewards.
-N_STEPS         = 4096
+N_STEPS         = 2048
 
 # batch_size: must divide evenly into n_steps.
 BATCH_SIZE      = 128
