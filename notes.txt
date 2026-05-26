@@ -77,3 +77,15 @@ hpc commands:
 
 
 
+
+links:
+
+    https://pettingzoo.farama.org/_modules/pettingzoo/classic/go/go/#raw_env.close  - pettingzoo
+    https://github.com/lweitkamp/feudalnets-pytorch/tree/master    - fedual 
+    https://github.com/Stable-Baselines-Team/stable-baselines3-contrib  - PPO
+    https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html  - DQN
+    
+
+
+
+
