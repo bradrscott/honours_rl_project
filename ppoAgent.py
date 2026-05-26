@@ -1,6 +1,7 @@
 # ── Imports ───────────────────────────────────────────────────
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from pettingzoo.classic import go_v5
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
@@ -10,6 +11,8 @@ from randomOpponent import RandomOpponent
 from config_ppo import *
 
 import wandb
+import torch
+import torch.nn as nn
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -17,6 +20,54 @@ import os
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+# ══════════════════════════════════════════════════════════════
+# CNN FEATURE EXTRACTOR
+#
+# Replaces the flat MLP with a CNN that processes the Go board
+# as a spatial (17, 19, 19) grid instead of a flat 6137-dim vector.
+#
+# Why this matters:
+#   A flat MLP has no concept of adjacency — position (0,0) and
+#   (18,18) are treated as unrelated features. A CNN shares weights
+#   across all board positions and learns spatial patterns like
+#   groups, liberties, territory and atari, which are fundamental
+#   to Go strategy.
+#
+# Architecture:
+#   Input:  (batch, 6137) flat obs → reshape to (batch, 17, 19, 19)
+#   Conv layers: CNN_LAYERS x Conv2d(filters, 3x3, pad=1) + ReLU
+#   Flatten → Linear → CNN_FEATURES dim output
+# ══════════════════════════════════════════════════════════════
+
+class GoCNNExtractor(BaseFeaturesExtractor):
+
+    def __init__(self, observation_space, features_dim=CNN_FEATURES,
+                 n_filters=CNN_FILTERS, n_layers=CNN_LAYERS, board_size=BOARD_SIZE):
+        super().__init__(observation_space, features_dim)
+        self.board_size  = board_size
+        self.n_channels  = 17  # observation planes
+
+        layers     = []
+        in_ch      = self.n_channels
+        for _ in range(n_layers):
+            layers.append(nn.Conv2d(in_ch, n_filters, kernel_size=3, padding=1))
+            layers.append(nn.ReLU())
+            in_ch = n_filters
+
+        cnn_flat = n_filters * board_size * board_size
+        layers.append(nn.Flatten())
+        layers.append(nn.Linear(cnn_flat, features_dim))
+        layers.append(nn.ReLU())
+
+        self.cnn = nn.Sequential(*layers)
+
+    def forward(self, observations):
+        # Reshape flat (batch, 6137) → spatial (batch, 17, 19, 19)
+        batch = observations.shape[0]
+        x = observations.view(batch, self.n_channels, self.board_size, self.board_size)
+        return self.cnn(x)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -87,7 +138,6 @@ class GoEnvWrapper(gym.Env):
 
 
 def get_go_env(vec_env):
-    """Safely unwrap to GoEnvWrapper regardless of wrapper depth."""
     env = vec_env.envs[0]
     while not isinstance(env, GoEnvWrapper):
         env = env.env
@@ -143,6 +193,7 @@ class WandbCallback(BaseCallback):
 if __name__ == '__main__':
     print("=" * 55)
     print(f"  PPO Agent — Go {BOARD_SIZE}x{BOARD_SIZE}")
+    print(f"  Policy: CNN ({CNN_LAYERS} layers, {CNN_FILTERS} filters)")
     print(f"  PPO:   Stable-Baselines3 (MaskablePPO)")
     print(f"  Board: PettingZoo go_v5")
     print(f"  Opponent: RandomOpponent")
@@ -165,6 +216,9 @@ if __name__ == '__main__':
             "clip_range":      CLIP_RANGE,
             "ent_coef":        ENT_COEF,
             "vf_coef":         VF_COEF,
+            "cnn_filters":     CNN_FILTERS,
+            "cnn_layers":      CNN_LAYERS,
+            "cnn_features":    CNN_FEATURES,
             "net_arch":        NET_ARCH,
             "opponent":        "random",
         }
@@ -176,22 +230,34 @@ if __name__ == '__main__':
     env = ActionMasker(env, lambda e: e.env.get_action_mask())
     print("Environment ready!\n")
 
+    # CNN feature extractor passed via policy_kwargs
+    policy_kwargs = dict(
+        features_extractor_class  = GoCNNExtractor,
+        features_extractor_kwargs = dict(
+            features_dim = CNN_FEATURES,
+            n_filters    = CNN_FILTERS,
+            n_layers     = CNN_LAYERS,
+            board_size   = BOARD_SIZE,
+        ),
+        net_arch = NET_ARCH,
+    )
+
     model = MaskablePPO(
         "MlpPolicy",
         env,
-        verbose=0,
-        tensorboard_log = LOG_DIR,
-        learning_rate   = LEARNING_RATE,
-        n_steps         = N_STEPS,
-        batch_size      = BATCH_SIZE,
-        n_epochs        = N_EPOCHS,
-        gamma           = GAMMA,
-        gae_lambda      = GAE_LAMBDA,
-        clip_range      = CLIP_RANGE,
-        ent_coef        = ENT_COEF,
-        vf_coef         = VF_COEF,
-        policy_kwargs   = dict(net_arch=NET_ARCH),
-        device          = "cuda",
+        verbose          = 0,
+        tensorboard_log  = LOG_DIR,
+        learning_rate    = LEARNING_RATE,
+        n_steps          = N_STEPS,
+        batch_size       = BATCH_SIZE,
+        n_epochs         = N_EPOCHS,
+        gamma            = GAMMA,
+        gae_lambda       = GAE_LAMBDA,
+        clip_range       = CLIP_RANGE,
+        ent_coef         = ENT_COEF,
+        vf_coef          = VF_COEF,
+        policy_kwargs    = policy_kwargs,
+        device           = "cuda",
     )
 
     print(f"Training for {TOTAL_TIMESTEPS:,} timesteps...")

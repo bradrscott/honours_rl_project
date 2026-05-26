@@ -9,6 +9,7 @@
 BOARD_SIZE      = 19
 OBS_DIM         = BOARD_SIZE * BOARD_SIZE * 17   # 6137
 N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1    # 362
+N_CHANNELS      = 17                              # observation planes
 
 # ── Training ──────────────────────────────────────────────────
 TOTAL_TIMESTEPS = 10_000_000
@@ -17,41 +18,34 @@ SAVE_DIR        = "./models/dqn/"
 LOG_DIR         = "./logs/dqn/"
 
 # ── DQN hyperparameters ───────────────────────────────────────
-
-# learning_rate: same as PPO for fair comparison.
-LEARNING_RATE   = 1e-4
-
-# buffer_size: number of transitions in replay buffer.
-#   50k * 6137 floats * 4 bytes * 2 (obs + next_obs) ≈ 2.4GB.
-#   Reduce to 20_000 if HPC runs out of memory.
-BUFFER_SIZE     = 50_000
-
-# learning_starts: random steps before learning begins.
-#   Fills buffer with diverse experiences first.
-LEARNING_STARTS = 10_000
-
-# batch_size: transitions sampled per gradient update.
-BATCH_SIZE      = 64
-
-# gamma: discount factor. Same as PPO — Go needs long horizon.
-GAMMA           = 0.995
-
-# train_freq: update Q-network every N environment steps.
-TRAIN_FREQ      = 4
-
-# target_update_freq: steps between target network syncs.
-#   Too low → unstable. Too high → slow learning.
-TARGET_UPDATE_FREQ = 1_000
-
-# epsilon_start: initial exploration rate.
-EPSILON_START   = 1.0
-
-# epsilon_end: final exploration rate after decay.
-EPSILON_END     = 0.05
-
-# epsilon_decay_steps: steps to decay epsilon from start to end.
-#   10% of total timesteps.
+LEARNING_RATE       = 5e-5
+BUFFER_SIZE         = 50_000
+LEARNING_STARTS     = 10_000
+BATCH_SIZE          = 64
+GAMMA               = 0.99
+TRAIN_FREQ          = 4
+TARGET_UPDATE_FREQ  = 1_000
+EPSILON_START       = 1.0
+EPSILON_END         = 0.05
 EPSILON_DECAY_STEPS = 1_000_000
 
-# net_arch: hidden layer sizes — matches PPO for fair comparison.
-NET_ARCH        = [256, 256]
+# ── CNN architecture ──────────────────────────────────────────
+# Same reasoning as PPO — Go is spatial, CNN is required.
+# Input reshaped from flat (6137,) to (17, 19, 19) inside QNetwork.
+CNN_FILTERS     = 64    # filters per conv layer
+CNN_LAYERS      = 5     # was 3 — more layers = better spatial reasoning
+HEAD_ARCH       = [256] # MLP head sizes after CNN flatten
+
+# ── Advanced DQN improvements ─────────────────────────────────
+
+# n_step: n-step returns — most impactful fix for sparse Go rewards.
+#   Standard DQN bootstraps 1 step ahead — signal barely propagates
+#   over 300-move games. N-step accumulates n actual rewards before
+#   bootstrapping, connecting actions to outcomes n moves ahead.
+#   Try: 10 → 20 if win rate still struggles.
+N_STEP          = 10
+
+# double_dqn: prevents Q-value overestimation.
+#   Online net selects action, target net evaluates it.
+#   Reduces the Q-value explosion risk seen in earlier runs.
+DOUBLE_DQN      = True
