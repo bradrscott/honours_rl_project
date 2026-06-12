@@ -5,10 +5,17 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from pettingzoo.classic import go_v5
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-from randomOpponent import RandomOpponent
 
 # ── Config ─────────────────────────────────────────────────────
 from config_ppo import *
+
+# ── Opponent selection ─────────────────────────────────────────
+if OPPONENT == "greedy":
+    from greedyOpponent import GreedyOpponent as OpponentClass
+elif OPPONENT == "aggressive":
+    from aggressiveOpponent import AggressiveOpponent as OpponentClass
+else:
+    from randomOpponent import RandomOpponent as OpponentClass
 
 import wandb
 import torch
@@ -24,21 +31,6 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 # ══════════════════════════════════════════════════════════════
 # CNN FEATURE EXTRACTOR
-#
-# Replaces the flat MLP with a CNN that processes the Go board
-# as a spatial (17, 19, 19) grid instead of a flat 6137-dim vector.
-#
-# Why this matters:
-#   A flat MLP has no concept of adjacency — position (0,0) and
-#   (18,18) are treated as unrelated features. A CNN shares weights
-#   across all board positions and learns spatial patterns like
-#   groups, liberties, territory and atari, which are fundamental
-#   to Go strategy.
-#
-# Architecture:
-#   Input:  (batch, 6137) flat obs → reshape to (batch, 17, 19, 19)
-#   Conv layers: CNN_LAYERS x Conv2d(filters, 3x3, pad=1) + ReLU
-#   Flatten → Linear → CNN_FEATURES dim output
 # ══════════════════════════════════════════════════════════════
 
 class GoCNNExtractor(BaseFeaturesExtractor):
@@ -47,7 +39,7 @@ class GoCNNExtractor(BaseFeaturesExtractor):
                  n_filters=CNN_FILTERS, n_layers=CNN_LAYERS, board_size=BOARD_SIZE):
         super().__init__(observation_space, features_dim)
         self.board_size  = board_size
-        self.n_channels  = 17  # observation planes
+        self.n_channels  = 17
 
         layers     = []
         in_ch      = self.n_channels
@@ -64,9 +56,10 @@ class GoCNNExtractor(BaseFeaturesExtractor):
         self.cnn = nn.Sequential(*layers)
 
     def forward(self, observations):
-        # Reshape flat (batch, 6137) → spatial (batch, 17, 19, 19)
+        # PettingZoo obs is (19,19,17) HWC — restore correct layout before CNN.
         batch = observations.shape[0]
-        x = observations.view(batch, self.n_channels, self.board_size, self.board_size)
+        x = observations.view(batch, self.board_size, self.board_size, self.n_channels)
+        x = x.permute(0, 3, 1, 2).contiguous()   # → (batch, 17, 19, 19)
         return self.cnn(x)
 
 
@@ -75,20 +68,14 @@ class GoCNNExtractor(BaseFeaturesExtractor):
 # ══════════════════════════════════════════════════════════════
 
 class GoEnvWrapper(gym.Env):
-    """
-    Wraps PettingZoo's two-agent Go into a single-agent Gymnasium env.
-    Our agent plays Black; White plays via the RandomOpponent class.
-    Action masking ensures only legal moves are ever selected.
-    Reward is sparse: +1 win, -1 loss at game end only.
-    """
 
-    def __init__(self, board_size=BOARD_SIZE, komi=7.5):
+    def __init__(self, board_size=BOARD_SIZE, komi=KOMI):
         super().__init__()
         self.board_size  = board_size
         self.komi        = komi
         self.env         = go_v5.env(board_size=board_size, komi=komi)
         self.action_mask = None
-        self.opponent    = RandomOpponent()
+        self.opponent    = OpponentClass()
 
         self.action_space = spaces.Discrete(board_size * board_size + 1)
         self.observation_space = spaces.Box(
@@ -196,13 +183,13 @@ if __name__ == '__main__':
     print(f"  Policy: CNN ({CNN_LAYERS} layers, {CNN_FILTERS} filters)")
     print(f"  PPO:   Stable-Baselines3 (MaskablePPO)")
     print(f"  Board: PettingZoo go_v5")
-    print(f"  Opponent: RandomOpponent")
+    print(f"  Opponent: {OPPONENT}")
     print("=" * 55)
 
     wandb.tensorboard.patch(root_logdir=LOG_DIR)
     wandb.init(
         project          = "honours-rl-go",
-        name             = "ppo-vs-random",
+        name             = f"ppo-vs-{OPPONENT}",
         sync_tensorboard = True,
         config           = {
             "board_size":      BOARD_SIZE,
@@ -220,7 +207,7 @@ if __name__ == '__main__':
             "cnn_layers":      CNN_LAYERS,
             "cnn_features":    CNN_FEATURES,
             "net_arch":        NET_ARCH,
-            "opponent":        "random",
+            "opponent":        OPPONENT,
         }
     )
 
@@ -230,7 +217,6 @@ if __name__ == '__main__':
     env = ActionMasker(env, lambda e: e.env.get_action_mask())
     print("Environment ready!\n")
 
-    # CNN feature extractor passed via policy_kwargs
     policy_kwargs = dict(
         features_extractor_class  = GoCNNExtractor,
         features_extractor_kwargs = dict(

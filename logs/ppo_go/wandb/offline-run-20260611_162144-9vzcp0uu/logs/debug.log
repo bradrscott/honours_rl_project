@@ -1,0 +1,23 @@
+2026-06-11 16:21:44,492 INFO    MainThread:32775 [wandb_setup.py:_flush():81] Current SDK version is 0.26.1
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_setup.py:_flush():81] Configure stats pid to 32775
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_init.py:setup_run_log_directory():723] Logging user logs to logs/ppo_go/wandb/offline-run-20260611_162144-9vzcp0uu/logs/debug.log
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_init.py:setup_run_log_directory():724] Logging internal logs to logs/ppo_go/wandb/offline-run-20260611_162144-9vzcp0uu/logs/debug-internal.log
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_init.py:init():850] calling init triggers
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_init.py:init():855] wandb.init called with sweep_config: {}
+config: {'board_size': 7, 'komi': 5.5, 'opponent': 'greedy', 'total_timesteps': 4000, 'learning_rate': 0.0003, 'n_steps': 400, 'batch_size': 256, 'n_epochs': 4, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.01, 'vf_coef': 0.5, 'max_grad_norm': 0.5, 'target_kl': 0.03, 'cnn_filters': 32, 'cnn_layers': 3, 'hidden_dim': 128, 'seed': 0, '_wandb': {}}
+2026-06-11 16:21:44,493 INFO    MainThread:32775 [wandb_init.py:init():898] starting backend
+2026-06-11 16:21:44,747 INFO    MainThread:32775 [wandb_init.py:init():913] sending inform_init request
+2026-06-11 16:21:44,891 INFO    MainThread:32775 [wandb_init.py:init():918] backend started and connected
+2026-06-11 16:21:44,913 INFO    MainThread:32775 [wandb_init.py:init():988] updated telemetry
+2026-06-11 16:21:45,046 INFO    MainThread:32775 [wandb_init.py:init():1011] communicating run to backend with 90.0 second timeout
+2026-06-11 16:21:45,052 INFO    MainThread:32775 [wandb_init.py:init():1056] starting run threads in backend
+2026-06-11 16:21:45,107 INFO    MainThread:32775 [wandb_run.py:_console_start():2554] atexit reg
+2026-06-11 16:21:45,107 INFO    MainThread:32775 [wandb_run.py:_redirect():2403] redirect: wrap_raw
+2026-06-11 16:21:45,107 INFO    MainThread:32775 [wandb_run.py:_redirect():2472] Wrapping output streams.
+2026-06-11 16:21:45,107 INFO    MainThread:32775 [wandb_run.py:_redirect():2495] Redirects installed.
+2026-06-11 16:21:45,109 INFO    MainThread:32775 [wandb_init.py:init():1094] run started, returning control to user process
+2026-06-11 16:21:51,115 INFO    MainThread:32775 [wandb_run.py:_finish():2321] finishing run honours-rl-go/9vzcp0uu
+2026-06-11 16:21:51,115 INFO    MainThread:32775 [wandb_run.py:_atexit_cleanup():2520] got exitcode: 0
+2026-06-11 16:21:51,115 INFO    MainThread:32775 [wandb_run.py:_restore():2502] restore
+2026-06-11 16:21:51,115 INFO    MainThread:32775 [wandb_run.py:_restore():2508] restore done
