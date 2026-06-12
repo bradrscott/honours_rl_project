@@ -7,6 +7,9 @@
 
 # ── Environment ───────────────────────────────────────────────
 BOARD_SIZE      = 19
+KOMI            = 0.0    # reduced from 7.5 — greedy bot already has
+                         # attacking advantage; komi=7.5 made winning
+                         # impossible for a learning agent from scratch
 
 # ── Training ──────────────────────────────────────────────────
 TOTAL_TIMESTEPS = 10_000_000
@@ -15,14 +18,14 @@ SAVE_DIR        = "./models/ppo/"
 LOG_DIR         = "./logs/ppo/"
 
 # ── PPO hyperparameters ───────────────────────────────────────
-LEARNING_RATE   = 1e-4
-N_STEPS         = 4096
+LEARNING_RATE   = 5e-5
+N_STEPS         = 2048
 BATCH_SIZE      = 128
-N_EPOCHS        = 5
+N_EPOCHS        = 3
 GAMMA           = 0.995
 GAE_LAMBDA      = 0.90
 CLIP_RANGE      = 0.15
-ENT_COEF        = 0.02
+ENT_COEF        = 0.05
 VF_COEF         = 1.0
 
 # ── CNN architecture ──────────────────────────────────────────
@@ -47,3 +50,7 @@ CNN_FEATURES    = 256
 
 # NET_ARCH: MLP head sizes after the CNN features.
 NET_ARCH        = [256]
+
+# ── Opponent ──────────────────────────────────────────────────
+# Options: "random", "greedy", "aggressive"
+OPPONENT        = "aggressive"

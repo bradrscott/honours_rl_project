@@ -1,48 +1,36 @@
 # ── Greedy Opponent ───────────────────────────────────────────
 #
-# Heuristic Go opponent operating on the (19,19,17) board state.
+# Heuristic Go opponent operating on the (N, N, 17) board state.
 #
 # Strategy: maximise immediate local gain each turn.
-#   - Strongly prefers moves adjacent to opponent stones
-#     (threatens captures and reduces opponent liberties).
-#   - Also rewards connecting to own stones (building groups).
-#   - Adds a small centre bonus — central positions have higher
-#     strategic value in Go (more liberties, more territory).
-#   - Avoids passing unless no legal move scores above 0.
+#   - Strongly prefers moves adjacent to opponent stones (pressure).
+#   - Rewards connecting to own stones and central positions.
+#   - Passes when no move scores above a minimum threshold.
 #
-# Usage:
-#   opponent = GreedyOpponent()
-#   action   = opponent.select_action(obs)
+# Observation planes (PettingZoo go_v5, current player's perspective):
+#   plane 0 = OPPONENT stones
+#   plane 1 = OWN (current player) stones
+#   (Confirmed empirically. The previous version read plane 0 as own
+#    and plane 8 as opponent — both wrong; plane 8 is always empty.)
+#
+# Board-size aware: all action/pass indices derive from board_size,
+# so it works on 7x7, 9x9, 13x13, 19x19 — not just 19x19.
 
 import numpy as np
 
-BOARD_SIZE = 19
-N_ACTIONS  = BOARD_SIZE * BOARD_SIZE + 1   # 362
+PASS_THRESHOLD = 0.3   # pass if best move scores below this
+EPSILON        = 0.2   # default fraction of random legal moves
 
 
 class GreedyOpponent:
-    """
-    Greedy heuristic opponent for Go.
 
-    Scores every legal move by:
-        adjacent_opponent  * 3.0   — capture / reduce opponent liberties
-        adjacent_own       * 1.0   — reinforce own groups
-        centre_weight      * 0.5   — strategic value of the position
+    def __init__(self, board_size=19):
+        self.board_size  = board_size
+        self.n_actions   = board_size * board_size + 1
+        self.pass_action = board_size * board_size
+        self.name        = "greedy"
 
-    Picks the highest-scoring legal move with random tiebreaking.
-    Pass (action 361) is given score -1 and only selected if forced.
-
-    Observation planes used (current player's perspective):
-        Plane 0: current player stones
-        Plane 8: opponent stones
-    """
-
-    def __init__(self, board_size=BOARD_SIZE):
-        self.board_size = board_size
-        self.name       = "greedy"
-
-        # Precompute centre distance weights (normalised 0-1)
-        centre         = board_size / 2.0
+        centre = board_size / 2.0
         self._centre_w = np.zeros((board_size, board_size), dtype=np.float32)
         for r in range(board_size):
             for c in range(board_size):
@@ -50,33 +38,29 @@ class GreedyOpponent:
                 self._centre_w[r, c] = 1.0 - dist / board_size
 
     def select_action(self, obs):
-        """
-        Parameters:
-            obs (dict): PettingZoo observation with keys
-                'observation'  — (19, 19, 17) board state
-                'action_mask'  — (362,) binary legal-move mask
-
-        Returns:
-            int: selected legal action index
-        """
         board       = obs['observation']
         action_mask = obs['action_mask']
 
-        own_stones  = board[:, :, 0]
-        opp_stones  = board[:, :, 8]
+        opp_stones  = board[:, :, 0]   # opponent
+        own_stones  = board[:, :, 1]   # current player (us)
 
         legal_moves = np.where(action_mask == 1)[0]
-
         if len(legal_moves) == 0:
             raise ValueError("No legal moves available — environment error.")
 
-        scores = np.full(N_ACTIONS, -np.inf)
+        # epsilon-fraction random play
+        if np.random.random() < EPSILON:
+            return int(np.random.choice(legal_moves))
 
+        # only pass legal
+        if len(legal_moves) == 1 and legal_moves[0] == self.pass_action:
+            return self.pass_action
+
+        best_score = -np.inf
+        best_moves = []
         for action in legal_moves:
-            if action == N_ACTIONS - 1:           # pass
-                scores[action] = -1.0
+            if action == self.pass_action:
                 continue
-
             r = action // self.board_size
             c = action % self.board_size
 
@@ -88,10 +72,16 @@ class GreedyOpponent:
                     adj_opp += opp_stones[nr, nc]
                     adj_own += own_stones[nr, nc]
 
-            scores[action] = (adj_opp * 3.0
-                              + adj_own * 1.0
-                              + self._centre_w[r, c] * 0.5)
+            score = adj_opp * 3.0 + adj_own * 1.0 + self._centre_w[r, c] * 0.5
 
-        best_score = np.max(scores[legal_moves])
-        best_moves = legal_moves[scores[legal_moves] == best_score]
+            if score > best_score:
+                best_score = score
+                best_moves = [action]
+            elif score == best_score:
+                best_moves.append(action)
+
+        # pass if nothing meaningful and pass is legal
+        if best_score < PASS_THRESHOLD and self.pass_action in legal_moves:
+            return self.pass_action
+
         return int(np.random.choice(best_moves))

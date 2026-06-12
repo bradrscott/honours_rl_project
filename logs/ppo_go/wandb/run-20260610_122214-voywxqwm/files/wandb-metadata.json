@@ -1,0 +1,38 @@
+{
+  "os":  "macOS-26.3.1-arm64-arm-64bit",
+  "python":  "CPython 3.10.20",
+  "startedAt":  "2026-06-10T10:22:14.119150Z",
+  "program":  "/Users/bradscott/Desktop/HonoursProject/ppo_go.py",
+  "codePath":  "ppo_go.py",
+  "codePathLocal":  "ppo_go.py",
+  "git":  {
+    "remote":  "https://github.com/bradrscott/honours_rl_project.git",
+    "commit":  "15700c5d5f5326c9cf32581f360c7f83212eb7b9"
+  },
+  "email":  "bradrscott4@gmail.com",
+  "root":  "./logs/ppo_go/",
+  "host":  "Brads-MacBook-Air-2.local",
+  "executable":  "/opt/miniconda3/envs/rl_project/bin/python",
+  "cpu_count":  8,
+  "cpu_count_logical":  8,
+  "disk":  {
+    "/":  {
+      "total":  "245107195904",
+      "used":  "229846978560"
+    }
+  },
+  "memory":  {
+    "total":  "8589934592"
+  },
+  "apple":  {
+    "name":  "Apple M1",
+    "ecpuCores":  4,
+    "pcpuCores":  4,
+    "gpuCores":  7,
+    "memoryGb":  8,
+    "swapTotalBytes":  "3221225472",
+    "ramTotalBytes":  "8589934592",
+    "macModel":  "MacBookAir10,1"
+  },
+  "writerId":  "2dk4s7nsfzndhr44vbo2k1jlbhefjqn2"
+}

@@ -16,8 +16,11 @@
 
 import numpy as np
 
-BOARD_SIZE = 19
-N_ACTIONS  = BOARD_SIZE * BOARD_SIZE + 1   # 362
+BOARD_SIZE     = 19
+N_ACTIONS      = BOARD_SIZE * BOARD_SIZE + 1   # 362
+PASS_ACTION    = N_ACTIONS - 1                 # 361
+EPSILON        = 0.2   # 20% random moves — gives learning agent a chance
+PASS_THRESHOLD = 0.0   # pass if no opponent stones adjacent
 
 
 class AggressiveOpponent:
@@ -74,6 +77,10 @@ class AggressiveOpponent:
         if len(legal_moves) == 0:
             raise ValueError("No legal moves available — environment error.")
 
+        # 20% of the time play randomly
+        if np.random.random() < EPSILON:
+            return int(np.random.choice(legal_moves))
+
         scores = np.full(N_ACTIONS, -np.inf)
 
         for action in legal_moves:
@@ -98,6 +105,11 @@ class AggressiveOpponent:
 
             scores[action] = adj_opp * 5.0 + threat_bonus * 3.0
 
-        best_score = np.max(scores[legal_moves])
+        best_score = np.max(scores[legal_moves[legal_moves != PASS_ACTION]] if any(legal_moves != PASS_ACTION) else scores[legal_moves])
         best_moves = legal_moves[scores[legal_moves] == best_score]
+
+        # Pass if no opponent stones to attack and pass is legal
+        if best_score <= PASS_THRESHOLD and PASS_ACTION in legal_moves:
+            return PASS_ACTION
+
         return int(np.random.choice(best_moves))

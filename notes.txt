@@ -84,6 +84,48 @@ links:
     https://github.com/lweitkamp/feudalnets-pytorch/tree/master    - fedual 
     https://github.com/Stable-Baselines-Team/stable-baselines3-contrib  - PPO
     https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html  - DQN
+    https://github.com/adi3e08/PPO - PPO updated
+
+
+═══════════════════════════════════════════════════════════════
+PPO GO RUN CONFIGS  (config_ppo_go.py)
+═══════════════════════════════════════════════════════════════
+CONSTANTS — leave the same for every run:
+    LEARNING_RATE=3e-4  N_STEPS=2048  BATCH_SIZE=256  N_EPOCHS=4
+    GAMMA=0.99  GAE_LAMBDA=0.95  CLIP_RANGE=0.2  ENT_COEF=0.01
+    VF_COEF=0.5  MAX_GRAD_NORM=0.5  TARGET_KL=0.03  SEED=0
+    N_CHANNELS=17  CNN_FILTERS=32  CNN_LAYERS=3  HIDDEN_DIM=128
+PER BOARD SIZE (set these 4):
+    Board    BOARD_SIZE   KOMI   TOTAL_TIMESTEPS   WINDOW
+    7x7        7          5.5     2_000_000        100
+    9x9        9          5.5     3_000_000        200
+    13x13      13         7.5     5_000_000        200
+    19x19      19         7.5    10_000_000        500
+    (bigger board = longer games = more timesteps to get enough games)
+───────────────────────────────────────────────────────────────
+OPPONENT = "random"
+───────────────────────────────────────────────────────────────
+    Curriculum AUTO-DISABLED (RandomOpponent has no epsilon knob).
+    OPP_EPSILON_* values are ignored — leave them as-is.
+    Agent wins from the start (first-move advantage), so it learns
+    on all board sizes including 19x19 (~85% seen on 19x19 @10M).
+───────────────────────────────────────────────────────────────
+OPPONENT = "greedy"
+───────────────────────────────────────────────────────────────
+    greedy ALWAYS has an epsilon knob, so the curriculum is active.
+    epsilon = fraction of opponent moves that are random.
+        1.0 = pure random (easy)   0.2 = full greedy strength
+    7x7 / 9x9  — learns directly, curriculum optional:
+        OPP_EPSILON_START = 0.2
+        OPP_EPSILON_END   = 0.2    (START==END = curriculum OFF)
+    13x13 / 19x19 — curriculum REQUIRED (cold-start fix):
+        OPP_EPSILON_START = 1.0
+        OPP_EPSILON_END   = 0.2
+        OPP_ANNEAL_FRAC   = 0.6    (use 0.8 if win rate stalls)
+    Reason: full-strength greedy beats an untrained agent 100% on big
+    boards -> zero wins -> no reward signal -> flat 0% (cannot learn).
+    Curriculum starts opponent near-random so the agent gets a
+    foothold, then ramps difficulty up as the agent improves.
     
 
 

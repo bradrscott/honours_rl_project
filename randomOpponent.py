@@ -16,7 +16,8 @@ class RandomOpponent:
         action = opponent.select_action(obs)
     """
 
-    def __init__(self):
+    def __init__(self, board_size=None):
+        self.board_size = board_size
         self.name = "random"
 
     def select_action(self, obs):
