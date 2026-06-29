@@ -1,13 +1,11 @@
-# ── Greedy Opponent ───────────────────────────────────────────
+# ── Corner-Focused Opponent ───────────────────────────────────
 #
-# Competitive heuristic Go opponent — a BALANCED general fighter.
-#   - Captures opponent groups in atari and defends its own (tactics).
-#   - Plays contact moves (attack) and connects its own stones (build).
-#   - Mild preference for central, influential points.
+# Competitive heuristic Go opponent that builds AND attacks, but
+# concentrates its play in ONE corner (top-left). It plays sound contact
+# Go (capture / defend / build), with a strong spatial pull toward its
+# chosen corner — so its stones cluster there while still fighting well.
 #
-# This is the "all-round" baseline heuristic: distinct from aggressive
-# (capture-focused) and defensive (build-focused). Built on the shared
-# tactical layer (tactics.py) so it is consistent with the others.
+# Built on the shared tactical layer (tactics.py).
 #
 # Observation planes (go_v5, current player's perspective):
 #   plane 0 = OPPONENT stones, plane 1 = OWN stones.
@@ -15,29 +13,29 @@
 import numpy as np
 import tactics
 
-PASS_THRESHOLD = 0.3   # pass if best move scores below this
-EPSILON        = 0.0   # fraction of random legal moves; 0.0 = STRICT (plays purely by its rules)
+EPSILON   = 0.0   # 0.0 = STRICT (plays purely by its rules, no random moves)
 W_CAPTURE = 5.0
 W_DEFEND  = 3.0
 W_ATTACK  = 2.0
 W_CONNECT = 1.5
-W_CENTRE  = 0.5
+W_BIAS    = 10.0  # single-corner spatial pull (competitive + visible lean;
+                  # higher concentrates more but weakens play — see notes)
 
 
-class GreedyOpponent:
+class CornerOpponent:
 
     def __init__(self, board_size=19):
         self.board_size  = board_size
         self.n_actions   = board_size * board_size + 1
         self.pass_action = board_size * board_size
-        self.name        = "greedy"
+        self.name        = "corner"
 
-        centre = board_size / 2.0
-        self._centre_w = np.zeros((board_size, board_size), dtype=np.float32)
-        for r in range(board_size):
-            for c in range(board_size):
-                dist = abs(r - centre) + abs(c - centre)
-                self._centre_w[r, c] = 1.0 - dist / board_size
+        # spatial pull toward ONE corner (top-left (0,0))
+        n = board_size
+        self._bias = np.zeros((n, n), dtype=np.float32)
+        for r in range(n):
+            for c in range(n):
+                self._bias[r, c] = 1.0 - (r + c) / (2.0 * (n - 1))
 
     def select_action(self, obs):
         board       = obs['observation']
@@ -71,15 +69,14 @@ class GreedyOpponent:
 
             score = (cap * W_CAPTURE + dfd * W_DEFEND
                      + adj_opp * W_ATTACK + adj_own * W_CONNECT
-                     + self._centre_w[r, c] * W_CENTRE)
+                     + self._bias[r, c] * W_BIAS)
 
             if score > best_score:
                 best_score, best_moves = score, [action]
             elif score == best_score:
                 best_moves.append(action)
 
-        if best_score < PASS_THRESHOLD and self.pass_action in legal_moves:
-            return self.pass_action
         if not best_moves:
-            return int(np.random.choice(legal_moves))
+            return self.pass_action if self.pass_action in legal_moves \
+                else int(np.random.choice(legal_moves))
         return int(np.random.choice(best_moves))

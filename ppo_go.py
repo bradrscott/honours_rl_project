@@ -35,6 +35,12 @@ if OPPONENT == "greedy":
     from greedyOpponent import GreedyOpponent as OpponentClass
 elif OPPONENT == "aggressive":
     from aggressiveOpponent import AggressiveOpponent as OpponentClass
+elif OPPONENT == "defensive":
+    from defensiveOpponent import DefensiveOpponent as OpponentClass
+elif OPPONENT == "corner":
+    from cornerOpponent import CornerOpponent as OpponentClass
+elif OPPONENT == "edge":
+    from edgeOpponent import EdgeOpponent as OpponentClass
 else:
     from randomOpponent import RandomOpponent as OpponentClass
 
@@ -236,11 +242,16 @@ def train():
         },
     )
 
-    # set the fixed greedy difficulty from config (no-op for other opponents)
-    if OPPONENT == "greedy":
-        import greedyOpponent
-        greedyOpponent.EPSILON = GREEDY_EPSILON
-        print(f"  Greedy epsilon (fixed): {GREEDY_EPSILON}")
+    # set the opponent difficulty from config (no-op for random — it has
+    # no EPSILON knob and is the zero-strategy baseline)
+    _OPP_MODULES = {"greedy": "greedyOpponent", "aggressive": "aggressiveOpponent",
+                    "defensive": "defensiveOpponent", "corner": "cornerOpponent",
+                    "edge": "edgeOpponent"}
+    if OPPONENT in _OPP_MODULES:
+        import importlib
+        _m = importlib.import_module(_OPP_MODULES[OPPONENT])
+        _m.EPSILON = OPPONENT_EPSILON
+        print(f"  {OPPONENT} epsilon (difficulty): {OPPONENT_EPSILON}")
 
     env = GoEnv()
     net = ActorCritic(BOARD_SIZE, N_CHANNELS, N_ACTIONS,
