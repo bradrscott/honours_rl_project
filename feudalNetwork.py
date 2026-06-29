@@ -8,10 +8,14 @@
 # https://github.com/lweitkamp/feudalnets-pytorch
 #
 # Adaptations for Go:
-#   - MLP perception (no CNN — input is flat (19,19,17) board tensor)
+#   - CNN perception over the (n_channels, N, N) board tensor — the SAME
+#     conv trunk as the PPO baseline (the scaffold's default is also a
+#     CNN; the earlier flat-board MLP was a departure). This keeps the
+#     feature extractor identical to PPO so the only architectural
+#     difference is the Manager-Worker hierarchy (RQ3 fairness).
 #   - Action masking in Worker (only legal moves can be selected)
 #   - Single worker (b=1, one environment)
-#   - No Atari preprocessor
+#   - No Atari preprocessor (Go observations are already 0/1 planes)
 
 import torch
 import torch.nn as nn
@@ -34,8 +38,13 @@ def init_hidden(num_workers, size, device='cpu', grad=False):
 
 def weight_init(module):
     """Orthogonal weight initialisation (standard for RL)."""
-    if isinstance(module, (nn.Linear, nn.LSTMCell)):
-        nn.init.orthogonal_(module.weight if hasattr(module, 'weight') else module.weight_ih)
+    if isinstance(module, (nn.Linear, nn.Conv2d)):
+        nn.init.orthogonal_(module.weight)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.LSTMCell):
+        nn.init.orthogonal_(module.weight_ih)
+        nn.init.orthogonal_(module.weight_hh)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -45,22 +54,31 @@ def weight_init(module):
 
 class Perception(nn.Module):
     """
-    MLP feature extractor.
-    Input:  flat (19*19*17 = 6137,) board tensor
+    CNN feature extractor — the SAME conv trunk as the PPO baseline.
+    Input:  board tensor (b, n_channels, N, N)   e.g. (b, 17, 9, 9)
     Output: latent state z of size d
+
+    The original scaffold uses a CNN Perception by default; this restores
+    it (the earlier flat-board MLP was an adaptation) and makes the feature
+    extractor identical to PPO so the only architectural difference between
+    the two agents is the Manager-Worker hierarchy.
     """
 
-    def __init__(self, input_dim, d):
+    def __init__(self, board_size, n_channels, d, n_filters=32, n_layers=3):
         super().__init__()
-        self.percept = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, d),
-            nn.ReLU(),
-        )
+        conv, in_ch = [], n_channels
+        for _ in range(n_layers):
+            conv += [nn.Conv2d(in_ch, n_filters, 3, padding=1), nn.ReLU()]
+            in_ch = n_filters
+        conv.append(nn.Flatten())
+        self.conv = nn.Sequential(*conv)
+
+        flat = n_filters * board_size * board_size
+        self.fc = nn.Sequential(nn.Linear(flat, d), nn.ReLU())
 
     def forward(self, x):
-        return self.percept(x)
+        # x: (b, n_channels, N, N) -> (b, d)
+        return self.fc(self.conv(x))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -127,8 +145,8 @@ class Manager(nn.Module):
 
 class Worker(nn.Module):
     """
-    Produces an action distribution over all 362 actions
-    (19x19 intersections + pass) conditioned on:
+    Produces an action distribution over all n_actions
+    (N*N board intersections + pass) conditioned on:
       - The current latent state z
       - The Manager's goal direction g_t
 
@@ -224,7 +242,8 @@ class FeudalNetwork(nn.Module):
 
     def __init__(
         self,
-        input_dim,
+        board_size,
+        n_channels,
         n_actions,
         hidden_dim_manager = 256,
         hidden_dim_worker  = 16,
@@ -233,6 +252,8 @@ class FeudalNetwork(nn.Module):
         eps                = 0.1,
         num_workers        = 1,
         device             = 'cpu',
+        n_filters          = 32,
+        n_layers           = 3,
     ):
         super().__init__()
 
@@ -243,7 +264,7 @@ class FeudalNetwork(nn.Module):
         self.r       = dilation
         self.device  = device
 
-        self.percept = Perception(input_dim, self.d)
+        self.percept = Perception(board_size, n_channels, self.d, n_filters, n_layers)
         self.manager = Manager(self.c, self.d, self.r, eps, device)
         self.worker  = Worker(self.b, self.c, self.d, self.k, n_actions, device)
 
@@ -259,7 +280,7 @@ class FeudalNetwork(nn.Module):
         Full forward pass.
 
         Args:
-            x:           raw observation tensor, shape (b, input_dim)
+            x:           board observation tensor, shape (b, n_channels, N, N)
             goals:       FIFO list of goal tensors, length 2c+1
             states:      FIFO list of state tensors, length 2c+1
             mask:        episode done mask, shape (b, 1)

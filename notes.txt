@@ -102,31 +102,6 @@ PER BOARD SIZE (set these 4):
     13x13      13         7.5     5_000_000        200
     19x19      19         7.5    10_000_000        500
     (bigger board = longer games = more timesteps to get enough games)
-───────────────────────────────────────────────────────────────
-OPPONENT = "random"
-───────────────────────────────────────────────────────────────
-    Curriculum AUTO-DISABLED (RandomOpponent has no epsilon knob).
-    OPP_EPSILON_* values are ignored — leave them as-is.
-    Agent wins from the start (first-move advantage), so it learns
-    on all board sizes including 19x19 (~85% seen on 19x19 @10M).
-───────────────────────────────────────────────────────────────
-OPPONENT = "greedy"
-───────────────────────────────────────────────────────────────
-    greedy ALWAYS has an epsilon knob, so the curriculum is active.
-    epsilon = fraction of opponent moves that are random.
-        1.0 = pure random (easy)   0.2 = full greedy strength
-    7x7 / 9x9  — learns directly, curriculum optional:
-        OPP_EPSILON_START = 0.2
-        OPP_EPSILON_END   = 0.2    (START==END = curriculum OFF)
-    13x13 / 19x19 — curriculum REQUIRED (cold-start fix):
-        OPP_EPSILON_START = 1.0
-        OPP_EPSILON_END   = 0.2
-        OPP_ANNEAL_FRAC   = 0.6    (use 0.8 if win rate stalls)
-    Reason: full-strength greedy beats an untrained agent 100% on big
-    boards -> zero wins -> no reward signal -> flat 0% (cannot learn).
-    Curriculum starts opponent near-random so the agent gets a
-    foothold, then ramps difficulty up as the agent improves.
-    
 
 
 

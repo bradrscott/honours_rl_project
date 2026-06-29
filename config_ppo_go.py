@@ -17,25 +17,27 @@
 # climbs visibly — which is the goal here (demonstrate learning).
 # Scale up (9 -> 13 -> 19) only once 7x7 clearly works.
 BOARD_SIZE      = 13
-KOMI            = 7.5     
+KOMI            = 7.5
 
-# Opponent: "random" | "greedy" | "aggressive"
-OPPONENT        = "greedy"
+# Opponent: "random" | "greedy" | "aggressive" | "defensive" | "corner" | "edge"
+# Change THIS line to switch opponent, then re-upload + resubmit the job.
+OPPONENT        = "edge"
 
-# Greedy opponent difficulty — FIXED for the whole run (not a curriculum).
-# It's the fraction of the opponent's moves that are random:
-#   0.2 = full-strength greedy (use on 7x7 / 9x9 — agent can beat it)
-#   0.8 = weak greedy (use on 19x19 — full-strength greedy is unbeatable
-#         from scratch, so the agent needs a foothold to start learning;
-#         measured: a random agent wins ~10-20% at 0.8, ~0% below 0.75)
-# Only affects OPPONENT="greedy".
-GREEDY_EPSILON  = 0.4
+# Opponent difficulty — fraction of the opponent's moves that are random.
+# FIXED AT 0.0 (STRICT): every strategic bot plays purely by its own rules,
+# at full strength, never a random move. Each opponent tries to beat the
+# agent through its distinct strategy, not via injected noise. The SAME
+# strict setting is shared by the flat (PPO) and feudal agents so the
+# comparison is fair. (Does not apply to the random opponent.)
+OPPONENT_EPSILON = 0.0
 
 # ── Training ──────────────────────────────────────────────────
-TOTAL_TIMESTEPS = 4_000_000
+TOTAL_TIMESTEPS = 5_000_000
 SAVE_EVERY      = 200_000
-SAVE_DIR        = "./models/ppo_go/"
-LOG_DIR         = "./logs/ppo_go/"   # local dir wandb writes its run files to
+# Per-opponent dirs so parallel array jobs never overwrite each other's
+# checkpoints (e.g. ./models/ppo_go/aggressive/ppo_go_final.pt).
+SAVE_DIR        = f"./models/ppo_go/{OPPONENT}/"
+LOG_DIR         = f"./logs/ppo_go/{OPPONENT}/"   # local dir wandb writes its run files to
 SEED            = 0
 
 # ── Logging (Weights & Biases) ────────────────────────────────

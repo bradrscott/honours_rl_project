@@ -1,13 +1,12 @@
-# ── Greedy Opponent ───────────────────────────────────────────
+# ── Defensive Opponent ────────────────────────────────────────
 #
-# Competitive heuristic Go opponent — a BALANCED general fighter.
-#   - Captures opponent groups in atari and defends its own (tactics).
-#   - Plays contact moves (attack) and connects its own stones (build).
-#   - Mild preference for central, influential points.
+# Competitive heuristic Go opponent focused on BUILDING its own groups.
+#   - Top priority: defend own groups in atari, connect stones, keep
+#     liberties (solid, living shape).
+#   - Captures when handed an easy capture, but does not seek fights.
+#   - Avoids unnecessary contact with the opponent.
 #
-# This is the "all-round" baseline heuristic: distinct from aggressive
-# (capture-focused) and defensive (build-focused). Built on the shared
-# tactical layer (tactics.py) so it is consistent with the others.
+# Built on the shared tactical layer (tactics.py).
 #
 # Observation planes (go_v5, current player's perspective):
 #   plane 0 = OPPONENT stones, plane 1 = OWN stones.
@@ -15,29 +14,22 @@
 import numpy as np
 import tactics
 
-PASS_THRESHOLD = 0.3   # pass if best move scores below this
-EPSILON        = 0.0   # fraction of random legal moves; 0.0 = STRICT (plays purely by its rules)
-W_CAPTURE = 5.0
-W_DEFEND  = 3.0
-W_ATTACK  = 2.0
-W_CONNECT = 1.5
-W_CENTRE  = 0.5
+EPSILON        = 0.0   # 0.0 = STRICT (plays purely by its rules, no random moves)
+PASS_THRESHOLD = 0.5
+W_DEFEND  = 5.0   # saving own groups is the priority
+W_CONNECT = 3.0   # build / connect own stones
+W_LIBERTY = 1.5   # value empty neighbours (liberties = safety)
+W_CAPTURE = 2.0   # take a free capture if offered
+W_CONTACT = -0.5  # mild aversion to picking fights
 
 
-class GreedyOpponent:
+class DefensiveOpponent:
 
     def __init__(self, board_size=19):
         self.board_size  = board_size
         self.n_actions   = board_size * board_size + 1
         self.pass_action = board_size * board_size
-        self.name        = "greedy"
-
-        centre = board_size / 2.0
-        self._centre_w = np.zeros((board_size, board_size), dtype=np.float32)
-        for r in range(board_size):
-            for c in range(board_size):
-                dist = abs(r - centre) + abs(c - centre)
-                self._centre_w[r, c] = 1.0 - dist / board_size
+        self.name        = "defensive"
 
     def select_action(self, obs):
         board       = obs['observation']
@@ -59,19 +51,19 @@ class GreedyOpponent:
                 continue
             r, c = action // self.board_size, action % self.board_size
 
-            adj_opp = adj_own = 0.0
+            adj_opp = adj_own = empty = 0.0
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nr, nc = r + dr, c + dc
                 if 0 <= nr < self.board_size and 0 <= nc < self.board_size:
-                    adj_opp += opp_stones[nr, nc]
-                    adj_own += own_stones[nr, nc]
+                    if   own_stones[nr, nc] == 1: adj_own += 1.0
+                    elif opp_stones[nr, nc] == 1: adj_opp += 1.0
+                    else:                          empty   += 1.0
 
             cap, dfd = tactics.capture_defense(
                 opp_map, own_map, opp_stones, own_stones, r, c, self.board_size)
 
-            score = (cap * W_CAPTURE + dfd * W_DEFEND
-                     + adj_opp * W_ATTACK + adj_own * W_CONNECT
-                     + self._centre_w[r, c] * W_CENTRE)
+            score = (dfd * W_DEFEND + adj_own * W_CONNECT + empty * W_LIBERTY
+                     + cap * W_CAPTURE + adj_opp * W_CONTACT)
 
             if score > best_score:
                 best_score, best_moves = score, [action]

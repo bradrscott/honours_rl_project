@@ -1,81 +1,90 @@
 # ══════════════════════════════════════════════════════════════
-# FEUDAL CONFIG
+# FEUDAL CONFIG  (feudalAgent.py — FuN on Go)
 # Edit values here before a run. Import into feudalAgent.py with:
 #
 #   from config_feudal import *
+#
+# This is kept DELIBERATELY PARALLEL to config_ppo_go.py so the
+# Feudal vs flat-PPO comparison (RQ3) is fair: SAME board, SAME komi,
+# SAME opponents at the SAME strict difficulty, SAME CNN feature
+# extractor, SAME rolling-window win-rate metric. The ONLY intended
+# difference between the two agents is the architecture (flat actor-
+# critic vs Manager-Worker hierarchy).
 # ══════════════════════════════════════════════════════════════
 
-# ── Environment ───────────────────────────────────────────────
-BOARD_SIZE      = 19
-OBS_DIM         = BOARD_SIZE * BOARD_SIZE * 17   # 6137
-N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1    # 362
+# ── Environment (matched to config_ppo_go.py) ─────────────────────
+BOARD_SIZE      = 9
+KOMI            = 5.5
+N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 82 on 9x9
 
-# ── Training ──────────────────────────────────────────────────
-TOTAL_TIMESTEPS = 10_000_000
-SAVE_EVERY      = 500_000
-SAVE_DIR        = "./models/feudal/"
-LOG_DIR         = "./logs/feudal/"
+# Opponent: "random" | "greedy" | "aggressive" | "defensive" | "corner" | "edge"
+# Change THIS line to switch opponent, then re-upload + resubmit the job.
+OPPONENT        = "greedy"
 
-# ── FuN hyperparameters ───────────────────────────────────────
+# Strict opponents: 0.0 = plays purely by its rules (no random moves).
+# Same shared difficulty PPO faces. (No effect on the random opponent.)
+OPPONENT_EPSILON = 0.0
 
-# learning_rate: reduced from 3e-4 to 1e-4.
-#   FuN has two loss streams (manager + worker) compounding gradient
-#   updates — more sensitive than PPO. 3e-4 was causing win rate to
-#   decline. Same fix that worked for PPO.
+# ── CNN feature extractor (IDENTICAL to config_ppo_go.py) ─────────
+# The original scaffold (lweitkamp/feudalnets-pytorch) uses a CNN
+# Perception by default; the flat board MLP was an adaptation. We use
+# the SAME conv trunk as PPO so the only architectural difference is
+# the Manager-Worker hierarchy, not the feature extractor.
+N_CHANNELS      = 17
+CNN_FILTERS     = 32
+CNN_LAYERS      = 3
+
+# ── Training (matched to config_ppo_go.py) ────────────────────────
+TOTAL_TIMESTEPS = 3_000_000
+SAVE_EVERY      = 200_000
+SEED            = 0
+WANDB_PROJECT   = "honours-rl-go"
+WINDOW          = 200     # rolling window (games) for the win-rate metric
+
+# Per-opponent dirs so different opponent runs never overwrite each other.
+SAVE_DIR        = f"./models/feudal/{OPPONENT}/"
+LOG_DIR         = f"./logs/feudal/{OPPONENT}/"
+
+# ══════════════════════════════════════════════════════════════
+# FuN hyperparameters (architecture-specific — NOT shared with PPO)
+# ══════════════════════════════════════════════════════════════
+
+# learning_rate: Adam, 1e-4. FuN has two compounding loss streams
+# (manager + worker), so it is more sensitive than PPO; 3e-4 made the
+# win rate decline. (Scaffold used RMSprop 5e-4 for Atari.)
 LEARNING_RATE   = 1e-4
 
-# hidden_dim_manager (d): manager LSTM hidden dimension.
-#   Keep at 256 — perception already maps 6137 → 256 → d.
-#   Increasing doesn't help much; decreasing loses capacity.
+# hidden_dim_manager (d): manager/perception latent dimension.
 HIDDEN_DIM_M    = 256
 
-# hidden_dim_worker (k): worker embedding dimension.
-#   Keep at 16 — worker LSTM is already LSTMCell(256, 16*362=5792).
-#   Increasing k would double checkpoint size (already 545MB).
+# hidden_dim_worker (k): worker embedding dimension. Worker LSTM is
+# LSTMCell(d, k*n_actions); on 9x9 that is LSTMCell(256, 16*82=1312).
 HIDDEN_DIM_W    = 16
 
 # time_horizon (c): how many steps the manager commits to a goal.
-#   THIS WAS THE KEY PROBLEM. At c=10 in 300-move Go games, the
-#   manager was changing goals every 10 steps — too fast for the
-#   worker to follow, causing cosines to stay near 0.
-#   Increased to 15 to give the worker more time to follow each goal.
-#   Try: 10 → 15 → 20 if cosines still don't trend upward.
-TIME_HORIZON    = 15
+# Lowered to 10 for 9x9 (games are ~40-80 moves, far shorter than the
+# 200-300 of 19x19). The scaffold default is also 10. Try 10 -> 15 if
+# manager/cosines stay flat near 0.
+TIME_HORIZON    = 10
 
-# dilation (r): dilated LSTM radius.
-#   Always keep in sync with TIME_HORIZON.
-DILATION        = 15
+# dilation (r): dilated LSTM radius. Keep in sync with TIME_HORIZON.
+DILATION        = 10
 
 # eps: probability of a random goal (manager exploration).
 EPS             = 0.1
 
-# alpha: intrinsic reward mixing coefficient.
-#   Increased from 0.5 to 0.7 to pull the worker more strongly
-#   toward manager goals. Helps fix the low cosines problem.
-#   Too high → worker over-constrained, ignores local board threats.
-#   Try: 0.5 → 0.7 → 0.9 if cosines still near 0.
+# alpha: intrinsic-reward mixing weight in the worker advantage.
 ALPHA           = 0.7
 
-# gamma_manager: manager discount factor.
-#   Increased from 0.99 to 0.995 — Go games are 200-300 moves,
-#   manager needs to value outcomes further in the future.
-GAMMA_M         = 0.995
-
-# gamma_worker: worker discount factor.
-#   Slightly lower than manager — worker focuses on immediate sub-goals.
+# gamma_manager / gamma_worker: separate discount factors.
+GAMMA_M         = 0.99
 GAMMA_W         = 0.95
 
-# entropy_coef: entropy bonus for worker action distribution.
-#   Increased from 0.01 to 0.02 — worker entropy was trending
-#   downward, risking collapse to a narrow action set.
+# entropy_coef: worker action-distribution entropy bonus.
 ENTROPY_COEF    = 0.02
 
-# num_steps (K): steps collected per rollout.
-#   Increased from 400 to 600 — more steps gives better return
-#   estimates for sparse Go rewards.
+# num_steps (K): steps collected per rollout / update.
 NUM_STEPS       = 600
 
-# grad_clip: max norm for gradient clipping.
-#   Keep at 0.5 — important for hierarchical agents where
-#   manager and worker gradients can compound.
+# grad_clip: max gradient norm.
 GRAD_CLIP       = 0.5

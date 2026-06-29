@@ -1,0 +1,30 @@
+#!/bin/bash
+# ── PPO Go run script for CHPC Lengau (PBS Pro) ───────────────────
+# Submit with:  qsub run_ppo_go_chpc.pbs
+# Monitor with: qstat -u <username>      Cancel with: qdel <jobid>
+#
+# >>> CONFIRM the lines marked  # CONFIRM  against the CHPC wiki
+#     (http://wiki.chpc.ac.za) or with Kevin Colville before first use.
+
+#PBS -N PPO_Go
+#PBS -P CSCI1142                       # your project allocation (from the email)
+#PBS -q gpu_1                          # CONFIRM: 1-GPU queue name on Lengau
+#PBS -l select=1:ncpus=10:ngpus=1      # CONFIRM: cpus per GPU node
+#PBS -l walltime=08:00:00
+#PBS -o /mnt/lustre/users/REPLACE_USER/HonoursProject/ppo_go.out   # CONFIRM path
+#PBS -e /mnt/lustre/users/REPLACE_USER/HonoursProject/ppo_go.err   # CONFIRM path
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+# ── Environment ───────────────────────────────────────────────────
+# CHPC provides software via "module". You either load a CHPC python and
+# pip-install, or load anaconda and create your own env. CONFIRM the exact
+# module names with:  module avail python   /   module avail anaconda
+module purge
+module load chpc/python/anaconda/3-2021.11    # CONFIRM module name
+# If you build a conda env named rl_project on Lengau:
+# source activate rl_project
+
+# ── Run ───────────────────────────────────────────────────────────
+cd /mnt/lustre/users/REPLACE_USER/HonoursProject   # CONFIRM path
+python ppo_go.py
