@@ -72,6 +72,7 @@ class GoEnv:
         self.opponent   = OpponentClass(board_size=board_size)
         self._seed      = seed
         self.action_mask = None
+        self.move_count  = 0
 
     # -- helpers ---------------------------------------------------
     def _obs_chw(self, obs_dict):
@@ -90,13 +91,14 @@ class GoEnv:
     def reset(self):
         self.env.reset(seed=self._seed)
         self._seed += 1  # vary episodes while staying reproducible
+        self.move_count = 0
         obs, _, _, _, _ = self.env.last()
         self.action_mask = obs["action_mask"].astype(bool)
         return self._obs_chw(obs)
 
     def step(self, action):
         # our move
-        self.env.step(int(action))
+        self.env.step(int(action)); self.move_count += 1
 
         # opponent replies if the game is still going and it's their turn
         if (self.env.agents
@@ -105,14 +107,38 @@ class GoEnv:
                          or self.env.truncations.get(self.OPP, False))):
             opp_obs, _, _, _, _ = self.env.last()
             opp_action = self.opponent.select_action(opp_obs)
-            self.env.step(opp_action)
+            self.env.step(opp_action); self.move_count += 1
 
-        done   = self._done()
+        done = self._done()
+
+        # Move-cap safeguard: go_v5 has no move limit and only ends on two
+        # consecutive passes, so a competitive game vs a never-passing
+        # opponent can run forever. At MAX_MOVES we force passes so go_v5
+        # ends + area-scores the board and we read the real result. Our own
+        # move is already applied + recorded above, so the rollout is intact.
+        if not done and self.move_count >= MAX_MOVES:
+            self._force_finish()
+            done = True
+
         reward = float(self.env.rewards.get(self.AGENT, 0.0))  # OUR reward
 
         next_obs, _, _, _, _ = self.env.last()
         self.action_mask = next_obs["action_mask"].astype(bool)
         return self._obs_chw(next_obs), reward, done
+
+    def _force_finish(self):
+        """Force consecutive passes so go_v5 terminates and area-scores the
+        game. Two passes suffice; the guard is just a safety bound."""
+        pass_action = self.board_size * self.board_size
+        guard = 0
+        while self.env.agents and not self._done() and guard < 4:
+            cur = self.env.agent_selection
+            if (self.env.terminations.get(cur, False)
+                    or self.env.truncations.get(cur, False)):
+                self.env.step(None)
+            else:
+                self.env.step(pass_action)
+            guard += 1
 
     def get_action_mask(self):
         return self.action_mask

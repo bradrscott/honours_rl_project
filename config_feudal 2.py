@@ -13,9 +13,9 @@
 # ══════════════════════════════════════════════════════════════
 
 # ── Environment (matched to config_ppo_go.py) ─────────────────────
-BOARD_SIZE      = 13
-KOMI            = 7.5
-N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 170 on 13x13
+BOARD_SIZE      = 9
+KOMI            = 5.5
+N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 82 on 9x9
 
 # Max plies before a game is force-ended (see config_ppo_go.py for the full
 # reasoning). Counts PLIES; per-player cap is MAX_MOVES/2. Set above natural
@@ -24,14 +24,11 @@ N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 170 on 13x13
 MAX_MOVES       = 16 * BOARD_SIZE * BOARD_SIZE   # 2704 plies ~= 1352 of our moves
 
 # Opponent: "random" | "greedy" | "aggressive" | "defensive" | "corner" | "edge"
-# Set ENTIRELY from the environment — the SLURM array (run_feudal_array.sh)
-# exports OPPONENT per task, so every run names its opponent explicitly and no
-# opponent is a special default. To run one manually, export it first:
-#   OPPONENT=random python feudalAgent.py
-import os
-OPPONENT        = os.environ["OPPONENT"]
+# Change THIS line to switch opponent, then re-upload + resubmit the job.
+OPPONENT        = "greedy"
 
-# Opponent difficulty — STRICT (eps=0) for every bot. MUST match PPO.
+# Strict opponents: 0.0 = plays purely by its rules (no random moves).
+# Same shared difficulty PPO faces. (No effect on the random opponent.)
 OPPONENT_EPSILON = 0.0
 
 # ── CNN feature extractor (IDENTICAL to config_ppo_go.py) ─────────
@@ -44,7 +41,7 @@ CNN_FILTERS     = 32
 CNN_LAYERS      = 3
 
 # ── Training (matched to config_ppo_go.py) ────────────────────────
-TOTAL_TIMESTEPS = 5_000_000    # match PPO's 13x13 budget
+TOTAL_TIMESTEPS = 3_000_000
 SAVE_EVERY      = 200_000
 SEED            = 0
 WANDB_PROJECT   = "honours-rl-go"
@@ -67,16 +64,17 @@ LEARNING_RATE   = 1e-4
 HIDDEN_DIM_M    = 256
 
 # hidden_dim_worker (k): worker embedding dimension. Worker LSTM is
-# LSTMCell(d, k*n_actions); on 13x13 that is LSTMCell(256, 16*170=2720).
+# LSTMCell(d, k*n_actions); on 9x9 that is LSTMCell(256, 16*82=1312).
 HIDDEN_DIM_W    = 16
 
 # time_horizon (c): how many steps the manager commits to a goal.
-# 15 for 13x13 (games are longer than 9x9). Try 10 <-> 20 if
+# Lowered to 10 for 9x9 (games are ~40-80 moves, far shorter than the
+# 200-300 of 19x19). The scaffold default is also 10. Try 10 -> 15 if
 # manager/cosines stay flat near 0.
-TIME_HORIZON    = 15
+TIME_HORIZON    = 10
 
 # dilation (r): dilated LSTM radius. Keep in sync with TIME_HORIZON.
-DILATION        = 15
+DILATION        = 10
 
 # eps: probability of a random goal (manager exploration).
 EPS             = 0.1

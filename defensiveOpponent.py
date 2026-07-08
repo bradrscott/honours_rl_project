@@ -1,12 +1,10 @@
-# ── Defensive Opponent ────────────────────────────────────────
+# ── Defensive Opponent (blundering + builder style) ───────────
 #
-# Competitive heuristic Go opponent focused on BUILDING its own groups.
-#   - Top priority: defend own groups in atari, connect stones, keep
-#     liberties (solid, living shape).
-#   - Captures when handed an easy capture, but does not seek fights.
-#   - Avoids unnecessary contact with the opponent.
-#
-# Built on the shared tactical layer (tactics.py).
+# Builds its own groups: defends, connects, values liberties, avoids
+# unnecessary contact, takes free captures. Deliberately does NOT use
+# self-atari / eye / territory avoidance, so it BLUNDERS — which keeps it
+# beatable by a trained PPO. Its distinct trait is solid, passive building.
+# Strict eps=0.
 #
 # Observation planes (go_v5, current player's perspective):
 #   plane 0 = OPPONENT stones, plane 1 = OWN stones.
@@ -14,8 +12,9 @@
 import numpy as np
 import tactics
 
-EPSILON        = 0.0   # 0.0 = STRICT (plays purely by its rules, no random moves)
+EPSILON        = 0.0
 PASS_THRESHOLD = 0.5
+
 W_DEFEND  = 5.0   # saving own groups is the priority
 W_CONNECT = 3.0   # build / connect own stones
 W_LIBERTY = 1.5   # value empty neighbours (liberties = safety)
@@ -43,27 +42,20 @@ class DefensiveOpponent:
         if np.random.random() < EPSILON:
             return int(np.random.choice(legal_moves))
 
-        opp_map, own_map = tactics.liberty_maps(opp_stones, own_stones)
+        A = tactics.analyze(opp_stones, own_stones)
 
         best_score, best_moves = -np.inf, []
         for action in legal_moves:
             if action == self.pass_action:
                 continue
             r, c = action // self.board_size, action % self.board_size
+            ev = tactics.evaluate_move(A, opp_stones, own_stones, r, c, self.board_size)
 
-            adj_opp = adj_own = empty = 0.0
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.board_size and 0 <= nc < self.board_size:
-                    if   own_stones[nr, nc] == 1: adj_own += 1.0
-                    elif opp_stones[nr, nc] == 1: adj_opp += 1.0
-                    else:                          empty   += 1.0
-
-            cap, dfd = tactics.capture_defense(
-                opp_map, own_map, opp_stones, own_stones, r, c, self.board_size)
-
-            score = (dfd * W_DEFEND + adj_own * W_CONNECT + empty * W_LIBERTY
-                     + cap * W_CAPTURE + adj_opp * W_CONTACT)
+            # Blundering scoring — no self-atari / eye / territory terms.
+            # ev.libs_after used as a mild "keep liberties" (solid) preference.
+            score = (ev.saves * W_DEFEND + ev.adj_own * W_CONNECT
+                     + ev.libs_after * W_LIBERTY + ev.captures * W_CAPTURE
+                     + ev.adj_opp * W_CONTACT)
 
             if score > best_score:
                 best_score, best_moves = score, [action]
