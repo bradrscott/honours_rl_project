@@ -19,16 +19,29 @@
 BOARD_SIZE      = 13
 KOMI            = 7.5
 
-# Opponent: "random" | "greedy" | "aggressive" | "defensive" | "corner" | "edge"
-# Change THIS line to switch opponent, then re-upload + resubmit the job.
-OPPONENT        = "edge"
+# Max PLIES (half-moves: our move + opponent move) before a game is
+# force-ended. go_v5 only terminates on two consecutive passes and has NO
+# move limit, so a competitive game vs a never-passing opponent can run to
+# 30k+ moves. At the cap we force passes so go_v5 area-scores the board.
+#
+# IMPORTANT: this counts PLIES, so the per-player move cap is MAX_MOVES/2.
+# It must sit ABOVE the natural game length, or it slices games off before
+# the agent can play them out and win (4*N*N=676 plies = only 338 of our
+# moves cut below the ~560-move natural aggressive game -> agent got 0% and
+# could not bootstrap). Set generously above that; only the 15k runaway is
+# cut. Lower it later, once the agent is clearly learning, to tighten games.
+MAX_MOVES       = 16 * BOARD_SIZE * BOARD_SIZE   # 2704 plies ~= 1352 of our moves
 
-# Opponent difficulty — fraction of the opponent's moves that are random.
-# FIXED AT 0.0 (STRICT): every strategic bot plays purely by its own rules,
-# at full strength, never a random move. Each opponent tries to beat the
-# agent through its distinct strategy, not via injected noise. The SAME
-# strict setting is shared by the flat (PPO) and feudal agents so the
-# comparison is fair. (Does not apply to the random opponent.)
+# Opponent: "random" | "greedy" | "aggressive" | "defensive" | "corner" | "edge"
+# Set ENTIRELY from the environment — the SLURM array (run_ppo_go_array.sh)
+# exports OPPONENT per task, so every run names its opponent explicitly and no
+# opponent is a special default. To run one manually, export it first:
+#   OPPONENT=random python ppo_go.py
+import os
+OPPONENT        = os.environ["OPPONENT"]
+
+# Opponent difficulty — STRICT (eps=0) for every bot: each plays purely by its
+# own rules, no injected randomness. Same for PPO and feudal.
 OPPONENT_EPSILON = 0.0
 
 # ── Training ──────────────────────────────────────────────────

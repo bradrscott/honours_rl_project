@@ -1,13 +1,14 @@
-# ── Greedy Opponent ───────────────────────────────────────────
+# ── Greedy Opponent (territory-grabbing / point-greedy) ───────
 #
-# Competitive heuristic Go opponent — a BALANCED general fighter.
-#   - Captures opponent groups in atari and defends its own (tactics).
-#   - Plays contact moves (attack) and connects its own stones (build).
-#   - Mild preference for central, influential points.
+# A GREEDY Go player: grabs the biggest available point (most territory)
+# every move, and takes a capture only if one is handed to it. It does NOT
+# hunt the opponent (no attack/contact focus) — that's the real greedy
+# weakness: it's acquisitive and thin, so the agent's groups survive and
+# it can out-play a greedy point-grabber. Strict eps=0.
 #
-# This is the "all-round" baseline heuristic: distinct from aggressive
-# (capture-focused) and defensive (build-focused). Built on the shared
-# tactical layer (tactics.py) so it is consistent with the others.
+#   FOCUS:      biggest open point (territory / influence)   -> W_TERRITORY
+#   secondary:  take a free capture, basic defend/connect    -> low weights
+#   NOT present: attack / contact-seeking (it does not hunt)
 #
 # Observation planes (go_v5, current player's perspective):
 #   plane 0 = OPPONENT stones, plane 1 = OWN stones.
@@ -15,13 +16,16 @@
 import numpy as np
 import tactics
 
-PASS_THRESHOLD = 0.3   # pass if best move scores below this
-EPSILON        = 0.0   # fraction of random legal moves; 0.0 = STRICT (plays purely by its rules)
-W_CAPTURE = 5.0
-W_DEFEND  = 3.0
-W_ATTACK  = 2.0
-W_CONNECT = 1.5
-W_CENTRE  = 0.5
+EPSILON        = 0.0
+PASS_THRESHOLD = 0.2
+
+W_TERRITORY = 6.0   # FOCUS: play the biggest open point (grab territory)
+W_CAPTURE   = 2.0   # take a free capture if offered (not the focus)
+W_DEFEND    = 2.0   # basic defence of own groups
+W_CONNECT   = 1.0   # basic connection
+W_ATTACK    = 1.0   # MINOR hunt: slight contact/pressure so it can chase a
+                    # capture. Kept small so territory stays the focus — this
+                    # only nudges it toward the opponent, it is not an attacker.
 
 
 class GreedyOpponent:
@@ -31,13 +35,6 @@ class GreedyOpponent:
         self.n_actions   = board_size * board_size + 1
         self.pass_action = board_size * board_size
         self.name        = "greedy"
-
-        centre = board_size / 2.0
-        self._centre_w = np.zeros((board_size, board_size), dtype=np.float32)
-        for r in range(board_size):
-            for c in range(board_size):
-                dist = abs(r - centre) + abs(c - centre)
-                self._centre_w[r, c] = 1.0 - dist / board_size
 
     def select_action(self, obs):
         board       = obs['observation']
@@ -51,27 +48,24 @@ class GreedyOpponent:
         if np.random.random() < EPSILON:
             return int(np.random.choice(legal_moves))
 
-        opp_map, own_map = tactics.liberty_maps(opp_stones, own_stones)
+        A = tactics.analyze(opp_stones, own_stones)
+        dist_own, dist_opp = tactics.influence_maps(opp_stones, own_stones)
 
         best_score, best_moves = -np.inf, []
         for action in legal_moves:
             if action == self.pass_action:
                 continue
             r, c = action // self.board_size, action % self.board_size
+            ev = tactics.evaluate_move(A, opp_stones, own_stones, r, c, self.board_size)
 
-            adj_opp = adj_own = 0.0
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.board_size and 0 <= nc < self.board_size:
-                    adj_opp += opp_stones[nr, nc]
-                    adj_own += own_stones[nr, nc]
-
-            cap, dfd = tactics.capture_defense(
-                opp_map, own_map, opp_stones, own_stones, r, c, self.board_size)
-
-            score = (cap * W_CAPTURE + dfd * W_DEFEND
-                     + adj_opp * W_ATTACK + adj_own * W_CONNECT
-                     + self._centre_w[r, c] * W_CENTRE)
+            # FOCUS = biggest open point; take a free capture / basic defend.
+            # MINOR attack term so it does a *little* hunting (chase captures)
+            # without becoming an attacker — territory still dominates.
+            score = (tactics.openness(dist_own, dist_opp, r, c) * W_TERRITORY
+                     + ev.captures * W_CAPTURE
+                     + ev.saves * W_DEFEND
+                     + ev.adj_own * W_CONNECT
+                     + ev.adj_opp * W_ATTACK)
 
             if score > best_score:
                 best_score, best_moves = score, [action]

@@ -61,6 +61,7 @@ class GoEnv:
                             if OPPONENT != "random" else OpponentClass())
         self._seed       = seed
         self.action_mask = None
+        self.move_count  = 0
 
     def _obs_chw(self, obs_dict):
         # go_v5 obs is (N, N, 17) HWC -> (17, N, N) CHW float32
@@ -75,13 +76,14 @@ class GoEnv:
     def reset(self):
         self.env.reset(seed=self._seed)
         self._seed += 1
+        self.move_count = 0
         obs, _, _, _, _ = self.env.last()
         self.action_mask = obs["action_mask"].astype(bool)
         return self._obs_chw(obs)
 
     def step(self, action):
         # our move
-        self.env.step(int(action))
+        self.env.step(int(action)); self.move_count += 1
 
         # opponent replies if the game continues and it's their turn
         if (self.env.agents
@@ -89,13 +91,33 @@ class GoEnv:
                 and not (self.env.terminations.get(self.OPP, False)
                          or self.env.truncations.get(self.OPP, False))):
             opp_obs, _, _, _, _ = self.env.last()
-            self.env.step(self.opponent.select_action(opp_obs))
+            self.env.step(self.opponent.select_action(opp_obs)); self.move_count += 1
 
-        done   = self._done()
+        done = self._done()
+
+        # Move-cap safeguard (see ppo_go.GoEnv): force passes at MAX_MOVES so
+        # go_v5 area-scores the board. Our move is already applied + recorded.
+        if not done and self.move_count >= MAX_MOVES:
+            self._force_finish()
+            done = True
+
         reward = float(self.env.rewards.get(self.AGENT, 0.0))   # OUR reward
         next_obs, _, _, _, _ = self.env.last()
         self.action_mask = next_obs["action_mask"].astype(bool)
         return self._obs_chw(next_obs), reward, done
+
+    def _force_finish(self):
+        """Force consecutive passes so go_v5 terminates and area-scores."""
+        pass_action = self.board_size * self.board_size
+        guard = 0
+        while self.env.agents and not self._done() and guard < 4:
+            cur = self.env.agent_selection
+            if (self.env.terminations.get(cur, False)
+                    or self.env.truncations.get(cur, False)):
+                self.env.step(None)
+            else:
+                self.env.step(pass_action)
+            guard += 1
 
     def get_action_mask(self):
         return self.action_mask

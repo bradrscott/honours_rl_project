@@ -1,15 +1,9 @@
-# ── Edge-Focused Opponent ─────────────────────────────────────
+# ── Edge-Focused Opponent (blundering + edge lean) ────────────
 #
-# Competitive heuristic Go opponent that builds AND attacks, but
-# concentrates its play along the PERIMETER (the board edges). It plays
-# sound contact Go (capture / defend / build), with a strong spatial
-# pull toward the edges — so its stones cluster on the sides while still
-# fighting well.
-#
-# Distinct from the corner opponent: corner play clusters at one corner,
-# edge play spreads along the whole perimeter.
-#
-# Built on the shared tactical layer (tactics.py).
+# Sound-ish contact play (capture / defend / attack / connect) with a soft
+# lean toward the perimeter (edges). Deliberately does NOT use self-atari /
+# eye / territory avoidance, so it BLUNDERS — which keeps it beatable by a
+# trained PPO. Its distinct trait is the edge lean. Strict eps=0.
 #
 # Observation planes (go_v5, current player's perspective):
 #   plane 0 = OPPONENT stones, plane 1 = OWN stones.
@@ -17,13 +11,13 @@
 import numpy as np
 import tactics
 
-EPSILON   = 0.0   # 0.0 = STRICT (plays purely by its rules, no random moves)
+EPSILON   = 0.0
+
 W_CAPTURE = 5.0
 W_DEFEND  = 3.0
 W_ATTACK  = 2.0
 W_CONNECT = 1.5
-W_BIAS    = 6.0   # perimeter spatial pull (competitive + visible lean;
-                  # higher concentrates more but weakens play — see notes)
+W_BIAS    = 3.0        # soft lean toward the nearest edge (its identity)
 
 
 class EdgeOpponent:
@@ -34,7 +28,6 @@ class EdgeOpponent:
         self.pass_action = board_size * board_size
         self.name        = "edge"
 
-        # spatial pull toward the nearest board edge
         n = board_size
         self._bias = np.zeros((n, n), dtype=np.float32)
         for r in range(n):
@@ -54,26 +47,18 @@ class EdgeOpponent:
         if np.random.random() < EPSILON:
             return int(np.random.choice(legal_moves))
 
-        opp_map, own_map = tactics.liberty_maps(opp_stones, own_stones)
+        A = tactics.analyze(opp_stones, own_stones)
 
         best_score, best_moves = -np.inf, []
         for action in legal_moves:
             if action == self.pass_action:
                 continue
             r, c = action // self.board_size, action % self.board_size
+            ev = tactics.evaluate_move(A, opp_stones, own_stones, r, c, self.board_size)
 
-            adj_opp = adj_own = 0.0
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.board_size and 0 <= nc < self.board_size:
-                    adj_opp += opp_stones[nr, nc]
-                    adj_own += own_stones[nr, nc]
-
-            cap, dfd = tactics.capture_defense(
-                opp_map, own_map, opp_stones, own_stones, r, c, self.board_size)
-
-            score = (cap * W_CAPTURE + dfd * W_DEFEND
-                     + adj_opp * W_ATTACK + adj_own * W_CONNECT
+            # Blundering scoring — no self-atari / eye / territory terms.
+            score = (ev.captures * W_CAPTURE + ev.saves * W_DEFEND
+                     + ev.adj_opp * W_ATTACK + ev.adj_own * W_CONNECT
                      + self._bias[r, c] * W_BIAS)
 
             if score > best_score:
