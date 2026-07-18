@@ -387,50 +387,63 @@ class Storage:
         return map(lambda x: torch.stack(x, dim=0), data)
 
 
-def feudal_loss(storage, next_v_m, next_v_w, gamma_m, gamma_w, alpha, entropy_coef, num_steps):
+def feudal_loss(storage, next_v_m, next_v_w, gamma_m, gamma_w, alpha,
+                entropy_coef, num_steps, gae_lambda):
     """
-    Compute FuN loss for Manager and Worker.
+    FuN loss with correctly-masked GAE(lambda) — the same low-variance credit
+    assignment PPO uses (PPO reaches ~70% vs aggressive; raw Monte-Carlo returns
+    left feudal at 0). Worker advantage is GAE on the (extrinsic+alpha*intrinsic)
+    reward; manager transition-PG (state-goal cosine) is weighted by GAE on the
+    extrinsic reward.
 
-    Manager loss: policy gradient using cosine similarity as advantage signal
-    Worker loss:  policy gradient using extrinsic + intrinsic advantage
-
-    Source: Vezhnevets et al. (2017) Eq. 4-9
-    Adapted from: lweitkamp/feudalnets-pytorch feudal_loss()
+    CRITICAL: GAE is gated by `nt` (nonterminal flag for THIS step, 0 on the
+    terminal step), NOT by `m` (the hidden-reset mask, 0 on the step AFTER a
+    terminal). An earlier GAE used `m` and leaked the next episode's value
+    across the boundary at every game end -> wild oscillation. `nt` fixes that.
     """
-    ret_m = next_v_m
-    ret_w = next_v_w
+    (rewards, rewards_intrinsic, value_m, value_w, logps, entropy,
+     state_goal_cosines, nts) = storage.stack(
+        ['r', 'r_i', 'v_m', 'v_w', 'logp', 'entropy', 's_goal_cos', 'nt'])
 
-    # Initialise return lists before filling them
-    storage.ret_m = [None] * num_steps
-    storage.ret_w = [None] * num_steps
-    if "ret_m" not in storage.keys:
-        storage.keys += ["ret_m", "ret_w"]
+    v_w_det = value_w.detach()
+    v_m_det = value_m.detach()
 
-    storage.placeholder()
+    adv_w_list = [None] * num_steps
+    adv_m_list = [None] * num_steps
+    gae_w = torch.zeros_like(next_v_w)
+    gae_m = torch.zeros_like(next_v_m)
+    next_vw, next_vm = next_v_w, next_v_m
 
     for i in reversed(range(num_steps)):
-        ret_m = storage.r[i] + gamma_m * ret_m * storage.m[i]
-        ret_w = storage.r[i] + gamma_w * ret_w * storage.m[i]
-        storage.ret_m[i] = ret_m
-        storage.ret_w[i] = ret_w
+        nt = nts[i]                      # 0 if step i ENDED the episode, else 1
 
-    storage.normalize(['ret_w', 'ret_m'])
+        # Worker: reward = extrinsic + alpha * intrinsic
+        rw       = rewards[i] + alpha * rewards_intrinsic[i]
+        delta_w  = rw + gamma_w * next_vw * nt - v_w_det[i]
+        gae_w    = delta_w + gamma_w * gae_lambda * nt * gae_w
+        adv_w_list[i] = gae_w
+        next_vw  = v_w_det[i]
 
-    (rewards_intrinsic, value_m, value_w,
-     ret_w, ret_m, logps, entropy,
-     state_goal_cosines) = storage.stack(
-        ['r_i', 'v_m', 'v_w', 'ret_w', 'ret_m',
-         'logp', 'entropy', 's_goal_cos']
-    )
+        # Manager: reward = extrinsic only
+        delta_m  = rewards[i] + gamma_m * next_vm * nt - v_m_det[i]
+        gae_m    = delta_m + gamma_m * gae_lambda * nt * gae_m
+        adv_m_list[i] = gae_m
+        next_vm  = v_m_det[i]
 
-    advantage_w = ret_w + alpha * rewards_intrinsic - value_w
-    advantage_m = ret_m - value_m
+    adv_w = torch.stack(adv_w_list, dim=0)
+    adv_m = torch.stack(adv_m_list, dim=0)
 
-    loss_worker  = (logps * advantage_w.detach()).mean()
-    loss_manager = (state_goal_cosines * advantage_m.detach()).mean()
+    returns_w = adv_w + v_w_det           # value-regression targets
+    returns_m = adv_m + v_m_det
 
-    value_w_loss = 0.5 * advantage_w.pow(2).mean()
-    value_m_loss = 0.5 * advantage_m.pow(2).mean()
+    adv_w_norm = (adv_w - adv_w.mean()) / (adv_w.std() + 1e-8)
+    adv_m_norm = (adv_m - adv_m.mean()) / (adv_m.std() + 1e-8)
+
+    loss_worker  = (logps * adv_w_norm.detach()).mean()
+    loss_manager = (state_goal_cosines * adv_m_norm.detach()).mean()
+
+    value_w_loss = 0.5 * (returns_w - value_w).pow(2).mean()
+    value_m_loss = 0.5 * (returns_m - value_m).pow(2).mean()
 
     entropy = entropy.mean()
 
@@ -447,10 +460,10 @@ def feudal_loss(storage, next_v_m, next_v_w, gamma_m, gamma_w, alpha, entropy_co
         'loss/value_worker':     value_w_loss.item(),
         'loss/value_manager':    value_m_loss.item(),
         'worker/entropy':        entropy.item(),
-        'worker/advantage':      advantage_w.mean().item(),
+        'worker/advantage':      adv_w.mean().item(),
         'worker/intrinsic_reward': rewards_intrinsic.mean().item(),
         'manager/cosines':       state_goal_cosines.mean().item(),
-        'manager/advantage':     advantage_m.mean().item(),
+        'manager/advantage':     adv_m.mean().item(),
     }
 
     return loss, metrics

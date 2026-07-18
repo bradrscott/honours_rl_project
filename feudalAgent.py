@@ -25,19 +25,11 @@ from pettingzoo.classic import go_v5
 from feudalNetwork import FeudalNetwork, Storage, feudal_loss
 from config_feudal import *
 
-# ── Opponent selection (identical to ppo_go.py) ───────────────────
-if OPPONENT == "greedy":
-    from greedyOpponent import GreedyOpponent as OpponentClass
-elif OPPONENT == "aggressive":
-    from aggressiveOpponent import AggressiveOpponent as OpponentClass
-elif OPPONENT == "defensive":
-    from defensiveOpponent import DefensiveOpponent as OpponentClass
-elif OPPONENT == "corner":
-    from cornerOpponent import CornerOpponent as OpponentClass
-elif OPPONENT == "edge":
-    from edgeOpponent import EdgeOpponent as OpponentClass
-else:
-    from randomOpponent import RandomOpponent as OpponentClass
+# Opponent selection is now a RUNTIME factory (opponents.py) — identical to
+# ppo_go.py. Same classes, same EPSILON mechanism, but Phase 2 can swap the
+# opponent mid-training (GoEnv.set_opponent).
+from opponents import make_opponent
+from phase2 import ShiftManager, RecoveryTracker, GameLog
 
 
 # ══════════════════════════════════════════════════════════════
@@ -57,11 +49,16 @@ class GoEnv:
     def __init__(self, board_size=BOARD_SIZE, komi=KOMI, seed=SEED):
         self.board_size  = board_size
         self.env         = go_v5.env(board_size=board_size, komi=komi)
-        self.opponent    = (OpponentClass(board_size=board_size)
-                            if OPPONENT != "random" else OpponentClass())
+        self.opponent    = make_opponent(OPPONENT, board_size, OPPONENT_EPSILON)
+        self.opponent_name = OPPONENT
         self._seed       = seed
         self.action_mask = None
         self.move_count  = 0
+
+    def set_opponent(self, name):
+        """Phase 2: swap the opponent mid-training (call at a game boundary)."""
+        self.opponent = make_opponent(name, self.board_size, OPPONENT_EPSILON)
+        self.opponent_name = name
 
     def _obs_chw(self, obs_dict):
         # go_v5 obs is (N, N, 17) HWC -> (17, N, N) CHW float32
@@ -148,19 +145,28 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"  Device: {device}")
 
-    # strict opponent difficulty from config (no-op for random)
-    _OPP_MODULES = {"greedy": "greedyOpponent", "aggressive": "aggressiveOpponent",
-                    "defensive": "defensiveOpponent", "corner": "cornerOpponent",
-                    "edge": "edgeOpponent"}
-    if OPPONENT in _OPP_MODULES:
-        import importlib
-        importlib.import_module(_OPP_MODULES[OPPONENT]).EPSILON = OPPONENT_EPSILON
-        print(f"  {OPPONENT} epsilon (difficulty): {OPPONENT_EPSILON}")
+    # Opponent difficulty is applied inside make_opponent (same module-level
+    # EPSILON mechanism as before — no-op for random, the zero-strategy bot).
+    print(f"  opponent epsilon (difficulty): {OPPONENT_EPSILON}")
 
-    import wandb
+    # wandb ON by default → UCT/existing runs are unchanged. Set USE_WANDB=0 to
+    # skip it (e.g. Lengau, which has no internet); or USE_WANDB=1 with
+    # WANDB_MODE=offline to log locally there and `wandb sync` later.
+    USE_WANDB = os.environ.get("USE_WANDB", "1") == "1"
+    if USE_WANDB:
+        import wandb
+    else:
+        class _NoWandb:                       # no-op shim
+            def init(self, *a, **k): pass
+            def log(self, *a, **k): pass
+            def finish(self, *a, **k): pass
+        wandb = _NoWandb()
+    run_name = f"feudal-{BOARD_SIZE}x{BOARD_SIZE}-vs-{OPPONENT}"
+    if RUN_TAG:
+        run_name += f"-{RUN_TAG}"
     wandb.init(
         project = WANDB_PROJECT,
-        name    = f"feudal-{BOARD_SIZE}x{BOARD_SIZE}-vs-{OPPONENT}",
+        name    = run_name,
         dir     = LOG_DIR,
         config  = {
             "agent":            "feudal",
@@ -184,6 +190,8 @@ def train():
             "cnn_filters":      CNN_FILTERS,
             "cnn_layers":       CNN_LAYERS,
             "seed":             SEED,
+            "resume_from":      RESUME_FROM,
+            "shift_schedule":   SHIFT_SCHEDULE,
         },
     )
 
@@ -204,6 +212,19 @@ def train():
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+    # ── PHASE 2: resume from a Phase-1 checkpoint + shift machinery ───
+    # All inert when RESUME_FROM/SHIFT_SCHEDULE are unset (Phase-1 mode).
+    # Identical logic to ppo_go.py so both agents are measured the same way.
+    if RESUME_FROM:
+        model.load_state_dict(torch.load(RESUME_FROM, map_location=device))
+        print(f"  ✓ resumed weights from {RESUME_FROM}")
+        # optimizer restarts fresh — identical treatment for both agents
+    shifter = ShiftManager(SHIFT_SCHEDULE)
+    tracker = RecoveryTracker(W_RECOVERY)
+    gamelog = GameLog(SAVE_DIR) if shifter.active else None
+    if shifter.active:
+        print(f"  Phase-2 shift schedule: {shifter.schedule}")
+
     # rolling-window metrics (same as ppo_go.py)
     win_window    = deque(maxlen=WINDOW)
     ep_rew_window = deque(maxlen=WINDOW)
@@ -220,6 +241,15 @@ def train():
 
     while global_step < TOTAL_TIMESTEPS:
         # ── 1. Collect a rollout of NUM_STEPS transitions ─────────
+        # Sever goals from the PREVIOUS rollout's (already-freed) graph ONCE
+        # here, at the rollout boundary. Do NOT detach goals every step: the
+        # Manager is trained by the transition policy gradient, which flows
+        # through the state-goal cosine INTO the goal. Detaching the goal each
+        # step (the old code) zeroed that gradient, so the Manager never
+        # learned to point goals usefully (manager/cosines stayed ~0) and the
+        # whole hierarchy was dead. States never carry gradient (Manager
+        # detaches them), so they are safe to leave as-is.
+        goals = [g.detach() for g in goals]
         for _ in range(NUM_STEPS):
             obs_t         = obs_to_tensor(obs, device)
             mask_t        = torch.tensor([[0.0 if done else 1.0]], device=device)
@@ -227,9 +257,13 @@ def train():
 
             dist, goals, states, value_m, value_w = model(
                 obs_t, goals, states, mask_t, action_mask_t)
-            model.repackage_hidden()
-            goals  = [g.detach() for g in goals]
-            states = [s.detach() for s in states]
+            # NOTE: do NOT repackage_hidden() here. Detaching the LSTM hidden
+            # state every step limited BPTT to a single step, so the Manager's
+            # dilated LSTM (whose whole job is temporal memory over c steps)
+            # could not learn any temporal dependency. Hidden state is now
+            # detached ONCE per rollout at the boundary (after the update, and
+            # via the goals-detach above), so gradient flows through the whole
+            # rollout as truncated BPTT — the way FuN is meant to train.
 
             action  = dist.sample()
             log_prob = dist.log_prob(action)
@@ -253,6 +287,12 @@ def train():
                 'entropy':    entropy.unsqueeze(-1),
                 's_goal_cos': s_goal_cos,
                 'm':          mask_t,
+                # nonterminal flag for THIS step (0 if this step ended the game).
+                # This is NOT the same as mask_t (which is 0 on the step AFTER a
+                # terminal, for hidden-state reset). GAE must gate its bootstrap
+                # with the terminal-step flag, or it leaks the next episode's
+                # value across the boundary — the bug that made GAE thrash.
+                'nt':         torch.tensor([[0.0 if done else 1.0]], device=device),
             })
 
             ep_rew += reward; ep_len += 1; global_step += 1
@@ -261,9 +301,27 @@ def train():
 
             if done:
                 episodes += 1
-                win_window.append(1.0 if reward > 0 else 0.0)
+                win = reward > 0
+                win_window.append(1.0 if win else 0.0)
                 ep_rew_window.append(ep_rew); ep_len_window.append(ep_len)
                 ep_rew, ep_len = 0.0, 0
+
+                # ── PHASE 2 hooks (inert without a shift schedule) ────
+                if shifter.active:
+                    rolling = tracker.on_game(win)
+                    gamelog.log(tracker.game_idx, global_step,
+                                env.opponent_name, win, rolling,
+                                len(tracker.shifts) - 1,
+                                tracker.games_since_shift())
+                    new_opp = shifter.check(global_step)
+                    if new_opp:
+                        env.set_opponent(new_opp)         # next game = new opp
+                        tracker.on_shift(global_step, new_opp)
+                        print(f"  ⚡ SHIFT @ step {global_step:,} / game "
+                              f"{tracker.game_idx:,} -> {new_opp} "
+                              f"(baseline rolling{W_RECOVERY} = "
+                              f"{tracker.shifts[-1]['baseline']:.3f})", flush=True)
+
                 obs  = env.reset()
                 mask = env.get_action_mask()
 
@@ -275,7 +333,7 @@ def train():
         # ── 3. FuN loss + update ──────────────────────────────────
         loss, metrics = feudal_loss(
             storage, next_v_m, next_v_w,
-            GAMMA_M, GAMMA_W, ALPHA, ENTROPY_COEF, NUM_STEPS)
+            GAMMA_M, GAMMA_W, ALPHA, ENTROPY_COEF, NUM_STEPS, GAE_LAMBDA)
 
         optimizer.zero_grad()
         loss.backward()
@@ -287,13 +345,24 @@ def train():
 
         # ── 4. Logging (same metric names as ppo_go.py) ───────────
         win_rate = float(np.mean(win_window)) if win_window else 0.0
-        wandb.log({
+        log_dict = {
             "custom/win_rate":       win_rate,
             "custom/total_episodes": episodes,
             "rollout/ep_rew_mean":   float(np.mean(ep_rew_window)) if ep_rew_window else 0.0,
             "rollout/ep_len_mean":   float(np.mean(ep_len_window)) if ep_len_window else 0.0,
             **metrics,
-        }, step=global_step)
+        }
+        # ── PHASE 2 metrics (only when a shift schedule is active) ────
+        if shifter.active:
+            log_dict["phase2/rolling"]           = tracker.rolling()
+            log_dict["phase2/games_since_shift"] = tracker.games_since_shift()
+            if tracker.shifts:
+                s = tracker.shifts[-1]
+                log_dict["phase2/shift_idx"] = s["shift_idx"]
+                log_dict["phase2/baseline"]  = s["baseline"]
+                if s["recovery_games"] is not None:
+                    log_dict["phase2/recovery_games_last_shift"] = s["recovery_games"]
+        wandb.log(log_dict, step=global_step)
 
         print(f"  Step {global_step:>9,} | Games {episodes:>6,} | "
               f"WinRate(last{WINDOW}) {win_rate:5.1%} | "
@@ -309,6 +378,10 @@ def train():
 
     torch.save(model.state_dict(), os.path.join(SAVE_DIR, "feudal_go_final.pt"))
     print("\n  ✓ Final model saved.")
+    if shifter.active:
+        tracker.save_summary(os.path.join(SAVE_DIR, "recovery_summary.json"))
+        gamelog.close()
+        print(f"  ✓ Phase-2 recovery summary + games.csv saved to {SAVE_DIR}")
     wandb.finish()
     env.close()
 

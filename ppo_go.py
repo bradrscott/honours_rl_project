@@ -30,19 +30,11 @@ from pettingzoo.classic import go_v5
 
 from config_ppo_go import *
 
-# ── Opponent selection ─────────────────────────────────────────
-if OPPONENT == "greedy":
-    from greedyOpponent import GreedyOpponent as OpponentClass
-elif OPPONENT == "aggressive":
-    from aggressiveOpponent import AggressiveOpponent as OpponentClass
-elif OPPONENT == "defensive":
-    from defensiveOpponent import DefensiveOpponent as OpponentClass
-elif OPPONENT == "corner":
-    from cornerOpponent import CornerOpponent as OpponentClass
-elif OPPONENT == "edge":
-    from edgeOpponent import EdgeOpponent as OpponentClass
-else:
-    from randomOpponent import RandomOpponent as OpponentClass
+# Opponent selection is now a RUNTIME factory (opponents.py) instead of an
+# import-time if/elif — same classes, same EPSILON mechanism, but it lets
+# Phase 2 swap the opponent mid-training (GoEnv.set_opponent).
+from opponents import make_opponent
+from phase2 import ShiftManager, RecoveryTracker, GameLog
 
 N_ACTIONS = BOARD_SIZE * BOARD_SIZE + 1
 
@@ -69,10 +61,16 @@ class GoEnv:
     def __init__(self, board_size=BOARD_SIZE, komi=KOMI, seed=SEED):
         self.board_size = board_size
         self.env        = go_v5.env(board_size=board_size, komi=komi)
-        self.opponent   = OpponentClass(board_size=board_size)
+        self.opponent   = make_opponent(OPPONENT, board_size, OPPONENT_EPSILON)
+        self.opponent_name = OPPONENT
         self._seed      = seed
         self.action_mask = None
         self.move_count  = 0
+
+    def set_opponent(self, name):
+        """Phase 2: swap the opponent mid-training (call at a game boundary)."""
+        self.opponent = make_opponent(name, self.board_size, OPPONENT_EPSILON)
+        self.opponent_name = name
 
     # -- helpers ---------------------------------------------------
     def _obs_chw(self, obs_dict):
@@ -238,12 +236,26 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"  Device: {device}")
 
-    import wandb
+    # wandb ON by default → UCT/existing runs are unchanged. Set USE_WANDB=0 to
+    # skip it (e.g. Lengau, which has no internet); or USE_WANDB=1 with
+    # WANDB_MODE=offline to log locally there and `wandb sync` later.
+    USE_WANDB = os.environ.get("USE_WANDB", "1") == "1"
+    if USE_WANDB:
+        import wandb
+    else:
+        class _NoWandb:                       # no-op shim
+            def init(self, *a, **k): pass
+            def log(self, *a, **k): pass
+            def finish(self, *a, **k): pass
+        wandb = _NoWandb()
     # Log config with lowercase keys matching the old runs so they line
     # up in the same Runs-table columns (otherwise this run shows dashes).
+    run_name = f"ppo-go-{BOARD_SIZE}x{BOARD_SIZE}-vs-{OPPONENT}"
+    if RUN_TAG:
+        run_name += f"-{RUN_TAG}"
     wandb.init(
         project = WANDB_PROJECT,
-        name    = f"ppo-go-{BOARD_SIZE}x{BOARD_SIZE}-vs-{OPPONENT}",
+        name    = run_name,
         dir     = LOG_DIR,
         config  = {
             "board_size":      BOARD_SIZE,
@@ -265,24 +277,31 @@ def train():
             "cnn_layers":      CNN_LAYERS,
             "hidden_dim":      HIDDEN_DIM,
             "seed":            SEED,
+            "resume_from":     RESUME_FROM,
+            "shift_schedule":  SHIFT_SCHEDULE,
         },
     )
 
-    # set the opponent difficulty from config (no-op for random — it has
-    # no EPSILON knob and is the zero-strategy baseline)
-    _OPP_MODULES = {"greedy": "greedyOpponent", "aggressive": "aggressiveOpponent",
-                    "defensive": "defensiveOpponent", "corner": "cornerOpponent",
-                    "edge": "edgeOpponent"}
-    if OPPONENT in _OPP_MODULES:
-        import importlib
-        _m = importlib.import_module(_OPP_MODULES[OPPONENT])
-        _m.EPSILON = OPPONENT_EPSILON
-        print(f"  {OPPONENT} epsilon (difficulty): {OPPONENT_EPSILON}")
+    # Opponent difficulty is applied inside make_opponent (same module-level
+    # EPSILON mechanism as before — no-op for random, the zero-strategy bot).
+    print(f"  opponent epsilon (difficulty): {OPPONENT_EPSILON}")
 
     env = GoEnv()
     net = ActorCritic(BOARD_SIZE, N_CHANNELS, N_ACTIONS,
                       CNN_FILTERS, CNN_LAYERS, HIDDEN_DIM).to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
+
+    # ── PHASE 2: resume from a Phase-1 checkpoint + shift machinery ───
+    # All inert when RESUME_FROM/SHIFT_SCHEDULE are unset (Phase-1 mode).
+    if RESUME_FROM:
+        net.load_state_dict(torch.load(RESUME_FROM, map_location=device))
+        print(f"  ✓ resumed weights from {RESUME_FROM}")
+        # optimizer restarts fresh — identical treatment for both agents
+    shifter  = ShiftManager(SHIFT_SCHEDULE)
+    tracker  = RecoveryTracker(W_RECOVERY)
+    gamelog  = GameLog(SAVE_DIR) if shifter.active else None
+    if shifter.active:
+        print(f"  Phase-2 shift schedule: {shifter.schedule}")
 
     # rolling-window win rate (NOT a lifetime cumulative average —
     # the old code's cumulative metric could never show a trend)
@@ -316,9 +335,27 @@ def train():
 
             if done:
                 episodes += 1
-                win_window.append(1.0 if reward > 0 else 0.0)
+                win = reward > 0
+                win_window.append(1.0 if win else 0.0)
                 ep_rew_window.append(ep_rew); ep_len_window.append(ep_len)
                 ep_rew, ep_len = 0.0, 0
+
+                # ── PHASE 2 hooks (inert without a shift schedule) ────
+                if shifter.active:
+                    rolling = tracker.on_game(win)
+                    gamelog.log(tracker.game_idx, global_step,
+                                env.opponent_name, win, rolling,
+                                len(tracker.shifts) - 1,
+                                tracker.games_since_shift())
+                    new_opp = shifter.check(global_step)
+                    if new_opp:
+                        env.set_opponent(new_opp)         # next game = new opp
+                        tracker.on_shift(global_step, new_opp)
+                        print(f"  ⚡ SHIFT @ step {global_step:,} / game "
+                              f"{tracker.game_idx:,} -> {new_opp} "
+                              f"(baseline rolling{W_RECOVERY} = "
+                              f"{tracker.shifts[-1]['baseline']:.3f})", flush=True)
+
                 obs = env.reset(); mask = env.get_action_mask()
 
         # ── 2. GAE + returns ──────────────────────────────────────
@@ -396,6 +433,16 @@ def train():
             "train/explained_var":    explained_var,
             "train/early_stopped":    float(stop),
         }
+        # ── PHASE 2 metrics (only when a shift schedule is active) ────
+        if shifter.active:
+            metrics["phase2/rolling"]           = tracker.rolling()
+            metrics["phase2/games_since_shift"] = tracker.games_since_shift()
+            if tracker.shifts:
+                s = tracker.shifts[-1]
+                metrics["phase2/shift_idx"] = s["shift_idx"]
+                metrics["phase2/baseline"]  = s["baseline"]
+                if s["recovery_games"] is not None:
+                    metrics["phase2/recovery_games_last_shift"] = s["recovery_games"]
         wandb.log(metrics, step=global_step)
 
         print(f"  Step {global_step:>9,} | Games {episodes:>6,} | "
@@ -412,6 +459,10 @@ def train():
 
     torch.save(net.state_dict(), os.path.join(SAVE_DIR, "ppo_go_final.pt"))
     print("\n  ✓ Final model saved.")
+    if shifter.active:
+        tracker.save_summary(os.path.join(SAVE_DIR, "recovery_summary.json"))
+        gamelog.close()
+        print(f"  ✓ Phase-2 recovery summary + games.csv saved to {SAVE_DIR}")
     wandb.finish()
 
 
