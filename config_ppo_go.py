@@ -45,12 +45,27 @@ OPPONENT        = os.environ["OPPONENT"]
 OPPONENT_EPSILON = 0.0
 
 # ── Training ──────────────────────────────────────────────────
-TOTAL_TIMESTEPS = 5_000_000
+# TOTAL_TIMESTEPS is env-overridable so Phase-2 runs can use a shorter
+# budget (2.3M) without touching this file. Default = Phase-1's 5M.
+TOTAL_TIMESTEPS = int(os.environ.get("TOTAL_TIMESTEPS", 5_000_000))
 SAVE_EVERY      = 200_000
+
+# ── PHASE 2 (RQ3 shift/recovery experiments) — ALL default OFF ────
+# With these unset a run behaves EXACTLY like Phase 1 (fresh network,
+# fixed opponent, no per-game CSV). run_phase2_ppo_array.sh sets them.
+RESUME_FROM     = os.environ.get("RESUME_FROM", "")     # Phase-1 ckpt to load; "" = fresh
+SHIFT_SCHEDULE  = os.environ.get("SHIFT_SCHEDULE", "")  # e.g. "edge@300000,corner@1800000"; "" = no shifts
+RUN_TAG         = os.environ.get("RUN_TAG", "")         # e.g. "phase2-low-f1"; suffixes wandb name + dirs
+W_RECOVERY      = 100   # the ONE rolling window (games) used in Phase 2 for the
+                        # win rate, the baseline AND recovery detection —
+                        # consistent across both agents, all conditions, shifts
+
 # Per-opponent dirs so parallel array jobs never overwrite each other's
-# checkpoints (e.g. ./models/ppo_go/aggressive/ppo_go_final.pt).
-SAVE_DIR        = f"./models/ppo_go/{OPPONENT}/"
-LOG_DIR         = f"./logs/ppo_go/{OPPONENT}/"   # local dir wandb writes its run files to
+# checkpoints. Phase-2 runs get their OWN dirs (RUN_TAG suffix) so they can
+# never overwrite the Phase-1 checkpoints they resume from.
+_DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
+SAVE_DIR        = f"./models/ppo_go/{_DIR_KEY}/"
+LOG_DIR         = f"./logs/ppo_go/{_DIR_KEY}/"   # local dir wandb writes its run files to
 SEED            = 0
 
 # ── Logging (Weights & Biases) ────────────────────────────────

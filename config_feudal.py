@@ -44,24 +44,39 @@ CNN_FILTERS     = 32
 CNN_LAYERS      = 3
 
 # ── Training (matched to config_ppo_go.py) ────────────────────────
-TOTAL_TIMESTEPS = 5_000_000    # match PPO's 13x13 budget
+# TOTAL_TIMESTEPS is env-overridable so Phase-2 runs can use a shorter
+# budget (2.3M) without touching this file. Default = Phase-1's 5M.
+TOTAL_TIMESTEPS = int(os.environ.get("TOTAL_TIMESTEPS", 5_000_000))
 SAVE_EVERY      = 200_000
 SEED            = 0
 WANDB_PROJECT   = "honours-rl-go"
 WINDOW          = 200     # rolling window (games) for the win-rate metric
 
+# ── PHASE 2 (RQ3 shift/recovery experiments) — ALL default OFF ────
+# Identical to config_ppo_go.py so both agents are measured the same way.
+# With these unset a run behaves EXACTLY like Phase 1.
+RESUME_FROM     = os.environ.get("RESUME_FROM", "")     # Phase-1 ckpt to load; "" = fresh
+SHIFT_SCHEDULE  = os.environ.get("SHIFT_SCHEDULE", "")  # e.g. "edge@300000,corner@1800000"; "" = no shifts
+RUN_TAG         = os.environ.get("RUN_TAG", "")         # e.g. "phase2-low-f1"; suffixes wandb name + dirs
+W_RECOVERY      = 100   # the ONE rolling window (games) — matches PPO's
+
 # Per-opponent dirs so different opponent runs never overwrite each other.
-SAVE_DIR        = f"./models/feudal/{OPPONENT}/"
-LOG_DIR         = f"./logs/feudal/{OPPONENT}/"
+# Phase-2 runs get their OWN dirs (RUN_TAG suffix) so they can never
+# overwrite the Phase-1 checkpoints they resume from.
+_DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
+SAVE_DIR        = f"./models/feudal/{_DIR_KEY}/"
+LOG_DIR         = f"./logs/feudal/{_DIR_KEY}/"
 
 # ══════════════════════════════════════════════════════════════
 # FuN hyperparameters (architecture-specific — NOT shared with PPO)
 # ══════════════════════════════════════════════════════════════
 
-# learning_rate: Adam, 1e-4. FuN has two compounding loss streams
-# (manager + worker), so it is more sensitive than PPO; 3e-4 made the
-# win rate decline. (Scaffold used RMSprop 5e-4 for Atari.)
-LEARNING_RATE   = 1e-4
+# learning_rate: Adam, 2e-4. Bumped from 1e-4 to learn faster within the tight
+# 5M-step budget (small for FuN). Kept BELOW the earlier 3e-4 that made the win
+# rate decline, and below the reference's RMSprop 5e-4 (not comparable — we use
+# Adam + a single worker, so gradients are noisier). If a run COLLAPSES (win
+# rate crashes to 0 and stays, or loss -> NaN), drop back to 1e-4.
+LEARNING_RATE   = 2e-4
 
 # hidden_dim_manager (d): manager/perception latent dimension.
 HIDDEN_DIM_M    = 256
@@ -81,18 +96,36 @@ DILATION        = 15
 # eps: probability of a random goal (manager exploration).
 EPS             = 0.1
 
-# alpha: intrinsic-reward mixing weight in the worker advantage.
-ALPHA           = 0.7
+# alpha: intrinsic-reward mixing weight in the worker advantage. 0.5 matches the
+# reference (lweitkamp) — was 0.7, which over-weighted the intrinsic goal-
+# following signal relative to actually winning.
+ALPHA           = 0.5
 
-# gamma_manager / gamma_worker: separate discount factors.
-GAMMA_M         = 0.99
-GAMMA_W         = 0.95
+# gamma_manager / gamma_worker: separate discount factors, aligned to the
+# reference (lweitkamp: gamma_m=0.999, gamma_w=0.99). We use a slightly lower
+# manager gamma (0.995) because we train with ONE worker (the reference uses 16
+# parallel workers, which averages out the higher-variance long-horizon return);
+# 0.995 is a safer horizon for our single-worker, noisier gradient estimate.
+GAMMA_M         = 0.995
+GAMMA_W         = 0.99
 
-# entropy_coef: worker action-distribution entropy bonus.
-ENTROPY_COEF    = 0.02
+# gae_lambda: GAE(lambda) trace decay (matches PPO's 0.95). This is the credit-
+# assignment mechanism PPO uses to break through vs aggressive (~70%); feudal's
+# old Monte-Carlo returns were too high-variance and left it at 0. GAE is gated
+# by the per-step terminal flag `nt` (see feudalAgent) so it does not leak value
+# across episode boundaries — the bug that made a previous GAE attempt oscillate.
+GAE_LAMBDA      = 0.95
 
-# num_steps (K): steps collected per rollout / update.
-NUM_STEPS       = 600
+# entropy_coef: worker action-distribution entropy bonus. 0.01 matches the
+# reference (lweitkamp) and PPO. (An earlier 0.005 was a speculative tweak;
+# reverted to the proven value.)
+ENTROPY_COEF    = 0.01
+
+# num_steps (K): steps collected per rollout / update. Lowered 600->400 now
+# that BPTT flows through the whole rollout (per-step repackage removed): this
+# bounds how deep the retained LSTM graph gets (memory/OOM safety) and gives
+# more frequent updates. If a run OOMs on the GPU, drop this further (300/256).
+NUM_STEPS       = 400
 
 # grad_clip: max gradient norm.
 GRAD_CLIP       = 0.5
