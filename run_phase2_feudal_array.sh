@@ -55,4 +55,4 @@ echo "Task ${IDX}: ${RUN_TAG}  A=${A} B=${B}"
 echo "  RESUME_FROM=${RESUME_FROM}"
 echo "  SHIFT_SCHEDULE=${SHIFT_SCHEDULE}"
 
-python feudalAgent.py
+python feudal/feudalAgent.py

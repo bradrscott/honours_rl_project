@@ -41,4 +41,4 @@ OPPONENTS=(aggressive greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
 
 echo "Array subjob ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"
-python feudalAgent.py
+python feudal/feudalAgent.py

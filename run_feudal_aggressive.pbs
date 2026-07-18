@@ -32,4 +32,4 @@ export TOTAL_TIMESTEPS=3000000
 cd /mnt/lustre/users/bscott/HonoursProject
 export OPPONENT=aggressive
 echo "Single run -> OPPONENT=${OPPONENT}"
-python feudalAgent.py
+python feudal/feudalAgent.py
