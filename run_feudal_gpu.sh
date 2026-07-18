@@ -11,4 +11,4 @@
 source ~/.bashrc
 conda activate rl_project
 cd /scratch/sctbra008/HonoursProject
-python feudalAgent.py
+python feudal/feudalAgent.py

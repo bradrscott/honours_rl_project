@@ -27,4 +27,4 @@ module load chpc/python/anaconda/3-2021.11    # CONFIRM module name
 
 # ── Run ───────────────────────────────────────────────────────────
 cd /mnt/lustre/users/REPLACE_USER/HonoursProject   # CONFIRM path
-python ppo_go.py
+python ppo/ppo_go.py

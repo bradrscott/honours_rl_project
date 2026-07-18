@@ -26,4 +26,4 @@ OPPONENTS=(aggressive greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$SLURM_ARRAY_TASK_ID]}
 
 echo "Array task ${SLURM_ARRAY_TASK_ID} -> OPPONENT=${OPPONENT}"
-python feudalAgent.py
+python feudal/feudalAgent.py
