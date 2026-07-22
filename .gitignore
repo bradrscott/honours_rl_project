@@ -1,0 +1,9 @@
+# training artifacts (kept on the cluster / regenerated locally)
+models/
+logs/
+phase2_results/
+
+# python + macOS cruft
+__pycache__/
+*.pyc
+.DS_Store
