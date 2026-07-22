@@ -1,0 +1,34 @@
+#!/bin/bash
+# ── PPO 9x9 on CHPC Lengau (PBS Pro) — array over the 6 opponents ─
+# Submit:  qsub run_ppo_9x9_chpc.pbs      Monitor: qstat -u bscott
+# >>> CONFIRM the # CONFIRM lines against the CHPC wiki before first use.
+
+#PBS -N PPO_9x9
+#PBS -P CSCI1142                        # CONFIRM: your project allocation
+#PBS -q gpu_1                           # CONFIRM: 1-GPU queue name on Lengau
+#PBS -l select=1:ncpus=10:ngpus=1       # CONFIRM: cpus per GPU node
+#PBS -l walltime=12:00:00               # CONFIRM: max walltime on gpu_1
+#PBS -J 0-5                             # PBS job array: one opponent per index
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/ppo9x9_^array_index^.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/ppo9x9_^array_index^.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+source ~/.bashrc
+module purge
+module load chpc/python/anaconda/3-2021.11   # CONFIRM module name
+source activate rl_project                    # CONFIRM: env you build on Lengau (torch+pettingzoo+wandb+numpy)
+
+cd /mnt/lustre/users/bscott/HonoursProject     # CONFIRM path
+
+# Compute nodes have no outgoing internet -> log wandb OFFLINE, sync from login1 later.
+export WANDB_MODE=offline
+export BOARD_SIZE=9
+export KOMI=5.5
+export TOTAL_TIMESTEPS=3000000
+
+OPPONENTS=(aggressive greedy defensive corner edge random)
+export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
+
+echo "9x9 CHPC PPO task ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"
+python ppo/ppo_go.py
