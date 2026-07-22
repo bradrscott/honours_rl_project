@@ -13,9 +13,12 @@
 # ══════════════════════════════════════════════════════════════
 
 # ── Environment (matched to config_ppo_go.py) ─────────────────────
-BOARD_SIZE      = 13
-KOMI            = 7.5
-N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 170 on 13x13
+import os   # needed for the env-overridable board/komi below
+# BOARD_SIZE / KOMI env-overridable so ONE codebase runs 9x9 AND 13x13.
+# Defaults = 13x13. For 9x9:  BOARD_SIZE=9 KOMI=5.5 OPPONENT=... python feudal/feudalAgent.py
+BOARD_SIZE      = int(os.environ.get("BOARD_SIZE", 13))
+KOMI            = float(os.environ.get("KOMI", 7.5))
+N_ACTIONS       = BOARD_SIZE * BOARD_SIZE + 1     # 170 on 13x13, 82 on 9x9
 
 # Max plies before a game is force-ended (see config_ppo_go.py for the full
 # reasoning). Counts PLIES; per-player cap is MAX_MOVES/2. Set above natural
@@ -64,8 +67,10 @@ W_RECOVERY      = 100   # the ONE rolling window (games) — matches PPO's
 # Phase-2 runs get their OWN dirs (RUN_TAG suffix) so they can never
 # overwrite the Phase-1 checkpoints they resume from.
 _DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
-SAVE_DIR        = f"./models/feudal/{_DIR_KEY}/"
-LOG_DIR         = f"./logs/feudal/{_DIR_KEY}/"
+_BOARD          = f"{BOARD_SIZE}x{BOARD_SIZE}"
+# Board size in the path so 9x9 and 13x13 runs NEVER overwrite each other.
+SAVE_DIR        = f"./models/feudal/{_BOARD}/{_DIR_KEY}/"
+LOG_DIR         = f"./logs/feudal/{_BOARD}/{_DIR_KEY}/"
 
 # ══════════════════════════════════════════════════════════════
 # FuN hyperparameters (architecture-specific — NOT shared with PPO)

@@ -16,8 +16,11 @@
 # in any realistic budget. On 7x7 vs a random opponent the win rate
 # climbs visibly — which is the goal here (demonstrate learning).
 # Scale up (9 -> 13 -> 19) only once 7x7 clearly works.
-BOARD_SIZE      = 13
-KOMI            = 7.5
+import os   # needed for the env-overridable board/komi below
+# BOARD_SIZE / KOMI env-overridable so ONE codebase runs 9x9 AND 13x13.
+# Defaults = 13x13. For 9x9:  BOARD_SIZE=9 KOMI=5.5 OPPONENT=greedy python ppo/ppo_go.py
+BOARD_SIZE      = int(os.environ.get("BOARD_SIZE", 13))
+KOMI            = float(os.environ.get("KOMI", 7.5))
 
 # Max PLIES (half-moves: our move + opponent move) before a game is
 # force-ended. go_v5 only terminates on two consecutive passes and has NO
@@ -64,8 +67,10 @@ W_RECOVERY      = 100   # the ONE rolling window (games) used in Phase 2 for the
 # checkpoints. Phase-2 runs get their OWN dirs (RUN_TAG suffix) so they can
 # never overwrite the Phase-1 checkpoints they resume from.
 _DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
-SAVE_DIR        = f"./models/ppo_go/{_DIR_KEY}/"
-LOG_DIR         = f"./logs/ppo_go/{_DIR_KEY}/"   # local dir wandb writes its run files to
+_BOARD          = f"{BOARD_SIZE}x{BOARD_SIZE}"
+# Board size in the path so 9x9 and 13x13 runs NEVER overwrite each other.
+SAVE_DIR        = f"./models/ppo_go/{_BOARD}/{_DIR_KEY}/"
+LOG_DIR         = f"./logs/ppo_go/{_BOARD}/{_DIR_KEY}/"   # local dir wandb writes its run files to
 SEED            = 0
 
 # ── Logging (Weights & Biases) ────────────────────────────────

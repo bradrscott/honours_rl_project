@@ -1,0 +1,34 @@
+#!/bin/bash
+# ── Feudal 9x9 on CHPC Lengau (PBS Pro) — array over the 6 opponents ─
+# Submit:  qsub run_feudal_9x9_chpc.pbs    Monitor: qstat -u bscott
+# Mirrors run_ppo_9x9_chpc.pbs (same board/komi/budget) for a fair comparison.
+# >>> CONFIRM the # CONFIRM lines against the CHPC wiki before first use.
+
+#PBS -N FEU_9x9
+#PBS -P CSCI1142                        # CONFIRM: your project allocation
+#PBS -q gpu_1                           # CONFIRM: 1-GPU queue name on Lengau
+#PBS -l select=1:ncpus=10:ngpus=1       # CONFIRM
+#PBS -l walltime=12:00:00               # CONFIRM (feudal is slower/step; raise if it times out)
+#PBS -J 0-5
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/feu9x9_^array_index^.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/feu9x9_^array_index^.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+source ~/.bashrc
+module purge
+module load chpc/python/anaconda/3-2021.11   # CONFIRM module name
+source activate rl_project                    # CONFIRM env name
+
+cd /mnt/lustre/users/bscott/HonoursProject     # CONFIRM path
+
+export WANDB_MODE=offline
+export BOARD_SIZE=9
+export KOMI=5.5
+export TOTAL_TIMESTEPS=3000000
+
+OPPONENTS=(aggressive greedy defensive corner edge random)
+export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
+
+echo "9x9 CHPC feudal task ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"
+python feudal/feudalAgent.py
