@@ -317,11 +317,22 @@ class FeudalNetwork(nn.Module):
         return dist, goals, states, value_m, value_w
 
     def get_next_values(self, x, goals, states, mask):
-        """Bootstrap values for the final step (no hidden state update)."""
+        """Bootstrap values for the final step.
+
+        `save=False` already skips the hidden-state write-back, but forward()
+        also (a) appends a goal/state to the lists and (b) advances the manager
+        dLSTM's dilation counter — both of which would leak a phantom step into
+        the NEXT rollout's window and knock the dilation cycle out of phase.
+        So we run the bootstrap on shallow COPIES of the lists and restore the
+        dilation counter afterwards, leaving the persistent state untouched.
+        """
+        saved_dilation = self.manager.Mrnn.dilation
+        goals_copy, states_copy = list(goals), list(states)
         with torch.no_grad():
             _, _, _, value_m, value_w = self.forward(
-                x, goals, states, mask, save=False
+                x, goals_copy, states_copy, mask, save=False
             )
+        self.manager.Mrnn.dilation = saved_dilation
         return value_m, value_w
 
     def intrinsic_reward(self, states, goals, masks):

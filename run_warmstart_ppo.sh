@@ -23,7 +23,7 @@ conda activate rl_project
 cd /scratch/sctbra008/HonoursProject
 
 export OPPONENT=aggressive
-export RESUME_FROM=./models/ppo_go/defensive/ppo_go_final.pt
+export RESUME_FROM=./models/ppo_go/${BOARD_SIZE:-13}x${BOARD_SIZE:-13}/defensive/ppo_go_final.pt
 export RUN_TAG=warmstart-from-defensive
 
 echo "PPO warm-start vs aggressive, resume from ${RESUME_FROM}"

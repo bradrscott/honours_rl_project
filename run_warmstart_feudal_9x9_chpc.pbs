@@ -1,0 +1,42 @@
+#!/bin/bash
+# ── WARM-START feudal 9x9: resume DEFENSIVE weights, train vs AGGRESSIVE ─
+# This is the "defensive -> aggressive" HIGH-magnitude transition — a precursor
+# to the Phase-2 recovery experiments. Loads the Phase-1 defensive checkpoint
+# and continues training against aggressive from step 0 (no shift schedule), so
+# we can overlay its win-rate curve against the from-scratch aggressive run and
+# see whether prior defensive competence speeds adaptation.
+# Submit:  qsub run_warmstart_feudal_9x9_chpc.pbs    Monitor: qstat -u bscott
+#
+# NOTE: PBS directives must NOT have trailing comments.
+#PBS -N FWARM_9x9
+#PBS -P CSCI1142
+#PBS -q serial
+#PBS -l select=1:ncpus=12
+#PBS -l walltime=48:00:00
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/fwarm9x9.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/fwarm9x9.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+source ~/.bashrc
+module purge
+module load chpc/python/anaconda/3-2021.11
+source activate rl_project
+
+cd /mnt/lustre/users/bscott/HonoursProject
+
+export OMP_NUM_THREADS=12
+# Compute nodes have NO internet (smoke test cnode0609) — wandb offline, sync later:
+#   export WANDB_API_KEY=<key>; wandb sync logs/feudal/9x9/*/wandb/offline-run-*
+export WANDB_MODE=offline
+export BOARD_SIZE=9
+export KOMI=5.5
+export TOTAL_TIMESTEPS=3000000
+
+# WARM-START: opponent is aggressive, but we resume from the DEFENSIVE weights.
+export OPPONENT=aggressive
+export RESUME_FROM=./models/feudal/9x9/defensive/feudal_go_final.pt
+export RUN_TAG=warmstart-from-defensive
+
+echo "9x9 feudal WARM-START vs ${OPPONENT}, resuming ${RESUME_FROM}"
+python feudal/feudalAgent.py

@@ -1,0 +1,41 @@
+#!/bin/bash
+# ── WARM-START feudal 13x13: resume DEFENSIVE weights, train vs AGGRESSIVE ─
+# The "defensive -> aggressive" HIGH-magnitude transition on 13x13 — precursor
+# to the Phase-2 recovery experiments. Loads the Phase-1 defensive checkpoint
+# (trained on UCT, transferred + verified to load into the current CNN arch)
+# and continues training against aggressive from step 0 (no shift schedule).
+# Submit:  qsub run_warmstart_feudal_13x13_chpc.pbs    Monitor: qstat -u bscott
+#
+# NOTE: PBS directives must NOT have trailing comments.
+#PBS -N FWARM_13x13
+#PBS -P CSCI1142
+#PBS -q serial
+#PBS -l select=1:ncpus=12
+#PBS -l walltime=48:00:00
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/fwarm13x13.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/fwarm13x13.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+source ~/.bashrc
+module purge
+module load chpc/python/anaconda/3-2021.11
+source activate rl_project
+
+cd /mnt/lustre/users/bscott/HonoursProject
+
+export OMP_NUM_THREADS=12
+# Compute nodes have NO internet (smoke test cnode0609) — wandb offline, sync later:
+#   export WANDB_API_KEY=<key>; wandb sync logs/feudal/13x13/*/wandb/offline-run-*
+export WANDB_MODE=offline
+export BOARD_SIZE=13
+export KOMI=7.5
+export TOTAL_TIMESTEPS=5000000
+
+# WARM-START: opponent is aggressive, but we resume from the DEFENSIVE weights.
+export OPPONENT=aggressive
+export RESUME_FROM=./models/feudal/13x13/defensive/feudal_go_final.pt
+export RUN_TAG=warmstart-from-defensive
+
+echo "13x13 feudal WARM-START vs ${OPPONENT}, resuming ${RESUME_FROM}"
+python feudal/feudalAgent.py

@@ -41,11 +41,24 @@ class DilatedLSTM(nn.Module):
         return y, (hx, cx)
 
     def masked_idx(self, dilated_idx):
-        """All indices except the current dilation slice."""
+        """All indices EXCEPT the current dilation slice.
+
+        Build [1..R*H] (all nonzero), zero the positions in dilated_idx, then
+        take nonzero() — which returns exactly the POSITIONS that were NOT
+        zeroed, i.e. the complement of dilated_idx. These positions are already
+        0-indexed into the hidden vector, so they are used directly.
+
+        NOTE (bug fix): the reference (lweitkamp/feudalnets-pytorch) subtracts 1
+        here. That is wrong — nonzero() already returns positions, so `- 1`
+        shifts every index down by one (and wraps 0 -> -1 onto the last unit),
+        which makes the pool collect the CURRENT slice instead of the others
+        and defeats the dilated LSTM's whole purpose. We drop the `- 1` and
+        squeeze the trailing dim so `hx[:, masked_idx]` reshapes cleanly to
+        (batch, hidden_size, radius-1) grouped per hidden unit.
+        """
         masked_idx              = torch.arange(1, self.radius * self.hidden_size + 1)
         masked_idx[dilated_idx] = 0
-        masked_idx              = masked_idx.nonzero()
-        masked_idx              = masked_idx - 1
+        masked_idx              = masked_idx.nonzero().squeeze(-1)
         return masked_idx
 
     @property

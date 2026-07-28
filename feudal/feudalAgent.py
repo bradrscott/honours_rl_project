@@ -276,9 +276,15 @@ def train():
 
             next_obs, reward, done = env.step(action.item())
 
-            masks.append(mask_t)
+            # Maintain the mask window with the SAME discipline as the goals/
+            # states windows in FeudalNetwork.forward (pop-then-append), so all
+            # three settle at the SAME length and index c refers to the SAME
+            # step in every list. (Previously masks used append-then-pop and
+            # settled one shorter than goals/states, misaligning the episode-
+            # boundary masking in intrinsic_reward / state_goal_cosine.)
             if len(masks) > (2 * TIME_HORIZON + 1):
                 masks.pop(0)
+            masks.append(mask_t)
 
             r_i        = model.intrinsic_reward(states, goals, masks)
             s_goal_cos = model.state_goal_cosine(states, goals, masks)

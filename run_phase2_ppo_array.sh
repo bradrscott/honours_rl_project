@@ -48,7 +48,7 @@ case ${FREQS[$F]} in
 esac
 
 export OPPONENT=$A
-export RESUME_FROM=./models/ppo_go/${A}/ppo_go_final.pt
+export RESUME_FROM=./models/ppo_go/${BOARD_SIZE:-13}x${BOARD_SIZE:-13}/${A}/ppo_go_final.pt
 export SHIFT_SCHEDULE=$SCHED
 export TOTAL_TIMESTEPS=2300000
 export RUN_TAG=phase2-${MAGS[$M]}-${FREQS[$F]}
