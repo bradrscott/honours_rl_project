@@ -4,11 +4,14 @@
 # Mirrors run_ppo_9x9_chpc.pbs (same board/komi/budget) for a fair comparison.
 # >>> CONFIRM the # CONFIRM lines against the CHPC wiki before first use.
 
+# NOTE: PBS directives must NOT have trailing comments — PBS reads the whole
+# rest of the line as the value. Settings: project CSCI1142, CPU queue "serial",
+# 12 cores, 48h walltime (feudal on CPU is very slow), array 0-5 = one opp/index.
 #PBS -N FEU_9x9
-#PBS -P CSCI1142                        # CONFIRM: your project allocation
-#PBS -q gpu_1                           # CONFIRM: 1-GPU queue name on Lengau
-#PBS -l select=1:ncpus=10:ngpus=1       # CONFIRM
-#PBS -l walltime=12:00:00               # CONFIRM (feudal is slower/step; raise if it times out)
+#PBS -P CSCI1142
+#PBS -q serial
+#PBS -l select=1:ncpus=12
+#PBS -l walltime=48:00:00
 #PBS -J 0-5
 #PBS -o /mnt/lustre/users/bscott/HonoursProject/feu9x9_^array_index^.out
 #PBS -e /mnt/lustre/users/bscott/HonoursProject/feu9x9_^array_index^.err
@@ -22,6 +25,10 @@ source activate rl_project                    # CONFIRM env name
 
 cd /mnt/lustre/users/bscott/HonoursProject     # CONFIRM path
 
+export OMP_NUM_THREADS=12          # let CPU torch use the allocated cores
+# CONFIRMED (smoke test cnode0609): compute nodes have NO internet, so wandb
+# MUST run offline or it hangs at init retrying. Sync from login1 afterwards:
+#   export WANDB_API_KEY=<key>; wandb sync logs/feudal/9x9/*/wandb/offline-run-*
 export WANDB_MODE=offline
 export BOARD_SIZE=9
 export KOMI=5.5

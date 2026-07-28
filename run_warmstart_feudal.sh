@@ -20,7 +20,7 @@ conda activate rl_project
 cd /scratch/sctbra008/HonoursProject
 
 export OPPONENT=aggressive
-export RESUME_FROM=./models/feudal/defensive/feudal_go_final.pt
+export RESUME_FROM=./models/feudal/${BOARD_SIZE:-13}x${BOARD_SIZE:-13}/defensive/feudal_go_final.pt
 export RUN_TAG=warmstart-from-defensive
 
 echo "Feudal warm-start vs aggressive, resume from ${RESUME_FROM}"

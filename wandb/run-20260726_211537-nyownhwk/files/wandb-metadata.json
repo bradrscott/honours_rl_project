@@ -1,0 +1,38 @@
+{
+  "os":  "macOS-26.5.1-arm64-arm-64bit",
+  "python":  "CPython 3.10.20",
+  "startedAt":  "2026-07-26T19:15:37.790396Z",
+  "program":  "/Users/bradscott/Desktop/HonoursProject/combine_greedy_runs.py",
+  "codePath":  "combine_greedy_runs.py",
+  "codePathLocal":  "combine_greedy_runs.py",
+  "git":  {
+    "remote":  "https://github.com/bradrscott/honours_rl_project.git",
+    "commit":  "082ec598871b0c778aff67005a498cf714a051f5"
+  },
+  "email":  "bradrscott4@gmail.com",
+  "root":  "/Users/bradscott/Desktop/HonoursProject",
+  "host":  "Brads-MacBook-Air-2.local",
+  "executable":  "/opt/miniconda3/envs/rl_project/bin/python",
+  "cpu_count":  8,
+  "cpu_count_logical":  8,
+  "disk":  {
+    "/":  {
+      "total":  "245107195904",
+      "used":  "220941131776"
+    }
+  },
+  "memory":  {
+    "total":  "8589934592"
+  },
+  "apple":  {
+    "name":  "Apple M1",
+    "ecpuCores":  4,
+    "pcpuCores":  4,
+    "gpuCores":  7,
+    "memoryGb":  8,
+    "swapTotalBytes":  "6442450944",
+    "ramTotalBytes":  "8589934592",
+    "macModel":  "MacBookAir10,1"
+  },
+  "writerId":  "6zz5y85ib1cjmwttedsa1s42rhe5hh7b"
+}

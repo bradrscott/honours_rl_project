@@ -1,0 +1,41 @@
+#!/bin/bash
+# ── Feudal 13x13 on CHPC Lengau (PBS Pro) — array over edge/corner/random ─
+# Submit:  qsub run_feudal_13x13_chpc.pbs    Monitor: qstat -u bscott
+# Same pipeline as the 9x9 runs, but 13x13, KOMI 7.5, 5M timesteps, and only
+# the three opponents still outstanding (edge, corner, random).
+#
+# NOTE: PBS directives must NOT have trailing comments — PBS reads the whole
+# rest of the line as the value. Settings: project CSCI1142, CPU queue "serial",
+# 12 cores, 48h walltime (feudal on CPU is very slow), array 0-5 = one opp/index.
+#PBS -N FEU_13x13
+#PBS -P CSCI1142
+#PBS -q serial
+#PBS -l select=1:ncpus=12
+#PBS -l walltime=48:00:00
+#PBS -J 0-5
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/feu13x13_^array_index^.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/feu13x13_^array_index^.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+source ~/.bashrc
+module purge
+module load chpc/python/anaconda/3-2021.11
+source activate rl_project
+
+cd /mnt/lustre/users/bscott/HonoursProject
+
+export OMP_NUM_THREADS=12          # let CPU torch use the allocated cores
+# CONFIRMED (smoke test cnode0609): compute nodes have NO internet, so wandb
+# MUST run offline or it hangs at init retrying. Sync from login1 afterwards:
+#   export WANDB_API_KEY=<key>; wandb sync logs/feudal/13x13/*/wandb/offline-run-*
+export WANDB_MODE=offline
+export BOARD_SIZE=13
+export KOMI=7.5
+export TOTAL_TIMESTEPS=5000000
+
+OPPONENTS=(aggressive greedy defensive corner edge random)
+export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
+
+echo "13x13 CHPC feudal task ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"
+python feudal/feudalAgent.py
