@@ -1,0 +1,247 @@
+%% ============================================================
+%%  Honours FINAL PAPER SCAFFOLD — RQ3
+%%  Feudal Networks vs flat PPO: recovery after opponent shifts in Go
+%%
+%%  ACM acmart, thesis config (sigconf two-column, nonacm = no ACM footers).
+%%  Compile on Overleaf with pdfLaTeX.
+%%
+%%  SCAFFOLD RULES followed here:
+%%   - Abstract = COMPLETE first draft.
+%%   - All other sections = PLANNED: short bullets saying WHAT will be written
+%%     (not the prose), with [TBD] where numbers/results are not yet final.
+%% ============================================================
+\documentclass[sigconf,nonacm]{acmart}
+\settopmatter{printacmref=false}
+\usepackage{booktabs}
+\usepackage{graphicx}
+
+\begin{document}
+
+\title{Does a feudal reinforcement learning improve recovery time following
+       abrupt opponent strategy shifts, compared to flat RL approach (PPO)?}
+
+\author{Brad Scott}
+\affiliation{%
+  \institution{University of Cape Town}
+  \department{Department of Computer Science}
+  \city{Cape Town}
+  \country{South Africa}}
+\email{sctbra008@myuct.ac.za}
+
+%% -------------------- ABSTRACT: complete first draft --------------------
+\begin{abstract}
+Reinforcement learning is increasingly applied to competitive settings in which
+an opponent's behaviour is not fixed. When that behaviour changes abruptly, the
+resulting non-stationarity can invalidate a previously effective policy.
+Hierarchical architectures are widely expected to re-adapt faster than flat ones
+in such situations, yet this expectation has rarely been tested directly against
+a shifting opponent. This work investigates whether a hierarchical Feudal
+Network (FuN) recovers more quickly than a flat Proximal Policy Optimization
+(PPO) agent following abrupt opponent strategy shifts in the game of Go. Both
+agents are trained against fixed heuristic opponents in PettingZoo's
+\texttt{go\_v5} on $9\times9$ and $13\times13$ boards, after which mid-training
+opponent shifts of varying magnitude and frequency are introduced. Their effect
+is measured by recovery time, together with the depth and overall cost of the
+resulting performance drop, over multiple random seeds. Across the conditions
+examined, the hierarchical agent does not recover faster than the flat baseline.
+These findings suggest that the FuN hierarchy does not provide the expected
+advantage under opponent-induced non-stationarity.
+\end{abstract}
+
+\maketitle
+
+%% ==================== PLANNED SECTIONS (bullets) ====================
+
+\section{Introduction}
+Reinforcement learning (RL) is a framework in which an agent learns how to
+behave by interacting with an environment. The agent observes different states,
+takes actions on those states and receives a reward, gradually adjusting its
+behaviour to maximise these rewards it collects over
+time~\cite{sutton2018reinforcement}. Through repeated trial and error the agent
+learns a policy, a function that maps each state to an action. Such a policy
+works well as long as the environment stays the same, but many real settings are
+not static. In competitive games in particular, an opponent does not play the
+same way forever and may change its strategy as the game unfolds. When the
+opponent changes, the conditions the agent originally learned against no longer
+hold, so behaviour that was once effective can suddenly perform poorly. This
+effect, in which the environment an agent faces shifts because the opponent's
+behaviour changes, is known as
+non-stationarity~\cite{hernandezleal2017survey}, and it is the central
+difficulty this work addresses. An agent that cannot adjust quickly after such a
+change suffers a lasting drop in performance, which motivates investigating how
+the architecture of a learning agent affects how quickly it recovers once an
+opponent shifts strategy.
+
+\begin{itemize}
+  \item The idea under test: a manager/worker hierarchy should recover faster.
+\end{itemize}
+
+\subsection{Research Question}
+\begin{itemize}
+  \item State RQ3 exactly. Describe the setting: the game of Go, against fixed
+        rule-based heuristic opponents on two board sizes ($9\times9$ and
+        $13\times13$).
+  \item What this work adds: (i) a controlled opponent-shift recovery benchmark
+        in Go; (ii) a tested FuN vs PPO comparison under identical conditions,
+        across shift magnitude, frequency and board size, (iii) three recovery
+        measures and what each can and cannot detect.
+  \item Main finding: the hierarchy did not improve recovery.
+  \item Roadmap: preview the remaining sections - Related Works, Design and
+        Implementation, Results, Discussion, and Conclusions.
+\end{itemize}
+
+\section{Related Works}
+% A SYNTHESISED discussion that builds to the gap — not a list of papers.
+% Keep it only as long as it needs to be. Opening frame, then subsections,
+% then close on the gap.
+\begin{itemize}
+  \item Open with: flat versus hierarchical RL, both of which must handle a
+        shifting opponent - followed by a preview of subsections.
+  \item Well-known RL work on Go, such as AlphaGo, as background context.
+\end{itemize}
+
+\subsection{Non-stationarity in Multi-Agent RL}
+\begin{itemize}
+  \item Non-stationarity / opponent-induced dynamics in multi-agent RL; why a
+        shift breaks a learned policy.
+\end{itemize}
+
+\subsection{Flat and Hierarchical RL}
+\begin{itemize}
+  \item Flat on-policy RL: PPO - the baseline under test.
+  \item Hierarchical RL and Feudal Networks: Manager--Worker, temporal
+        abstraction, intrinsic sub-goal reward; note the claims that it adapts
+        to a different opponent.
+\end{itemize}
+
+\subsection{Measuring Adaptation and Recovery}
+\begin{itemize}
+  \item Recovery-time / adaptation-speed metrics; how the recovery measure
+        relates and contrasts with catastrophic-forgetting work.
+\end{itemize}
+
+% Close the section on the gap:
+\begin{itemize}
+  \item State the gap this paper fills: HRL vs flat recovery under an opponent
+        shift, tested directly.
+\end{itemize}
+
+\section{Design and Implementation}
+\begin{itemize}
+  \item Open with: brief outline of the section - the environment and
+        opponents, the agents, the experimental design (Phase 1 and Phase 2),
+        the metrics, and the tools used.
+\end{itemize}
+
+\subsection{Environment and Opponents}
+\begin{itemize}
+  \item \textbf{Environment:} PettingZoo \texttt{go\_v5}; $9\times9$ (komi 5.5)
+        and $13\times13$ (komi 7.5); area scoring. Note the move-cap /
+        forced-termination handling.
+  \item \textbf{Fixed opponents:} five heuristic bots (greedy, defensive,
+        corner, edge, random), description of each style.
+\end{itemize}
+
+\subsection{Agents}
+\begin{itemize}
+  \item \textbf{Agents:} PPO (action-masked categorical policy, shared CNN
+        backbone); FuN (matched CNN perception, Manager dilated-LSTM trained on
+        extrinsic reward, Worker trained on intrinsic cosine reward). State that
+        both share observation preprocessing and backbone so the comparison is
+        architectural; note key implementation corrections made to FuN.
+\end{itemize}
+
+\subsection{Experimental Design}
+\begin{itemize}
+  \item \textbf{External reference:} GNU~Go, to reference agent strength before
+        the comparison.
+  \item \textbf{Phase 1:} train each agent against each opponent to a stable
+        win-rate baseline; this baseline defines the recovery target.
+  \item \textbf{Phase 2:} resume a Phase-1 checkpoint, then apply abrupt
+        opponent shifts.
+        \begin{itemize}
+          \item Magnitudes, calibrated by observed disruption: LOW
+                corner$\to$edge, MED corner$\to$defensive, HIGH
+                greedy$\to$defensive.
+          \item Frequencies: f1 single shift, f2 periodic, f3 frequent.
+          \item Design table: $3$ magnitudes $\times$ $3$ frequencies $\times$
+                $2$ agents $\times$ $2$ boards $\times$ $3$ seeds.
+        \end{itemize}
+  \item \textbf{Table of experiments:} summarise the runs in a table - columns
+        for condition, what is measured, and purpose.
+  \item \textbf{Parameters:} exact shift schedules and step budgets.
+\end{itemize}
+
+\subsection{Metrics}
+\begin{itemize}
+  \item \textbf{Metrics used:} Rolling win rate (window $100$ games); recovery
+        time; dip depth; adaptation cost. Description and purpose of each metric.
+\end{itemize}
+
+\subsection{Tools}
+\begin{itemize}
+  \item \textbf{Setup:} GPU and CPU training on the UCT cluster and CPU training
+        on the CHPC cluster; metrics logged to Weights \& Biases and to per-game
+        CSV files; per-seed runs kept separate then merged; state the number of
+        seeds.
+\end{itemize}
+
+\section{Results}
+% Factual presentation only — no interpretation (that goes in Discussion).
+\begin{itemize}
+  \item Open with: brief outline of the results - Phase-1 capability baselines,
+        then Phase-2 recovery, presented as tables and figures.
+\end{itemize}
+
+\subsection{Phase-1 Capability}
+\begin{itemize}
+  \item \textbf{Phase-1 capability} - Table: win rate per agent $\times$
+        opponent $\times$ board, with the GNU~Go reference [values TBD].
+\end{itemize}
+
+\subsection{Phase-2 Recovery}
+\begin{itemize}
+  \item \textbf{Phase-2 recovery} - Table: recovery time, dip depth and
+        adaptation cost per agent $\times$ magnitude $\times$ board, as mean
+        over seeds [values TBD].
+  \item \textbf{Figures:}
+        \begin{itemize}
+          \item rolling win-rate curves with shift points marked, PPO and FuN
+                overlaid per condition;
+          \item grouped bar chart of recovery time by magnitude, per board;
+          \item dip-depth / adaptation-cost comparison across conditions.
+        \end{itemize}
+\end{itemize}
+
+\section{Discussion}
+\begin{itemize}
+  \item Open with: recap what was tested, then interpret the Results.
+  \item Does the result answer RQ3 / reject the hypothesis that hierarchy speeds
+        recovery?
+  \item Analyse \emph{why} the result is negative - candidate mechanisms.
+  \item How recovery depends on magnitude, frequency and board size, and what
+        the two boards reveal about the metrics themselves (recovery time is
+        informative on $9\times9$; dip depth / adaptation cost on $13\times13$).
+  \item How the finding aligns with or contrasts the related literature (HRL's
+        claimed recovery advantage vs an opponent-shift setting).
+  \item \textbf{Implications:} what the negative result means for using HRL
+        under opponent-induced non-stationarity, and when a hierarchy might
+        still help.
+  \item \textbf{Limitations:} all seeds start from the same Phase-1 model, so
+        they capture only Phase-2 randomness; win rate used rather than a
+        territory/score margin; boards limited to $9\times9$ and $13\times13$,
+        not full-size $19\times19$ Go.
+\end{itemize}
+
+\section{Conclusions}
+\begin{itemize}
+  \item Restate the answer to RQ3 in one line [direction known, final numbers
+        TBD]: the FuN hierarchy did not recover faster than flat PPO.
+  \item Implication for hierarchical RL under opponent-induced non-stationarity.
+  \item Future work: more seeds; $19\times19$ board; a territory-margin metric.
+\end{itemize}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

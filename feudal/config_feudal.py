@@ -51,7 +51,7 @@ CNN_LAYERS      = 3
 # budget (2.3M) without touching this file. Default = Phase-1's 5M.
 TOTAL_TIMESTEPS = int(os.environ.get("TOTAL_TIMESTEPS", 5_000_000))
 SAVE_EVERY      = 200_000
-SEED            = 0
+SEED            = int(os.environ.get("SEED", 0))   # env-overridable for re-seeding (e.g. SEED=1 to re-sample a run); default 0 keeps Phase-1 reproducible
 WANDB_PROJECT   = "honours-rl-go"
 WINDOW          = 200     # rolling window (games) for the win-rate metric
 

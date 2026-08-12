@@ -381,7 +381,11 @@ def train():
               f"loss {metrics['loss/total']:.3f}", flush=True)
 
         # ── 5. Checkpoint ─────────────────────────────────────────
-        if global_step - last_save >= SAVE_EVERY:
+        # Phase 2 (shifter.active) does NOT need intermediate checkpoints — its
+        # results live in games.csv and it always resumes from the Phase-1 final,
+        # never from a mid-Phase-2 checkpoint. Saving them just burns scratch
+        # quota (feudal checkpoints are large), so skip them in Phase 2.
+        if not shifter.active and global_step - last_save >= SAVE_EVERY:
             path = os.path.join(SAVE_DIR, f"feudal_go_{global_step}.pt")
             torch.save(model.state_dict(), path)
             print(f"  ✓ saved {path}", flush=True)
