@@ -71,7 +71,7 @@ _BOARD          = f"{BOARD_SIZE}x{BOARD_SIZE}"
 # Board size in the path so 9x9 and 13x13 runs NEVER overwrite each other.
 SAVE_DIR        = f"./models/ppo_go/{_BOARD}/{_DIR_KEY}/"
 LOG_DIR         = f"./logs/ppo_go/{_BOARD}/{_DIR_KEY}/"   # local dir wandb writes its run files to
-SEED            = 0
+SEED            = int(os.environ.get("SEED", 0))   # env-overridable for re-seeding (e.g. SEED=1 to re-sample a run); default 0 keeps Phase-1 reproducible
 
 # ── Logging (Weights & Biases) ────────────────────────────────
 # All metrics go to wandb — no TensorBoard. Every scalar below shows

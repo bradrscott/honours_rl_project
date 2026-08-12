@@ -104,5 +104,6 @@ PER BOARD SIZE (set these 4):
     (bigger board = longer games = more timesteps to get enough games)
 
 
-
+# live demo command
+/opt/miniconda3/envs/rl_project/bin/python demo_live_game.py --agent ppo --trained-vs defensive --delay 0.7
 
