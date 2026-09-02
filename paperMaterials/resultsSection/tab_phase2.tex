@@ -1,0 +1,24 @@
+% ── Phase-2 recovery: recovery time / dip depth / adaptation cost ──
+% mean +- SE over 3 seeds x 3 shift frequencies. requires booktabs.
+\begin{table*}[t]
+  \centering
+  % Add your own \caption{...} here.
+  \label{tab:phase2}
+  \small
+  \begin{tabular}{@{}ll ccc ccc@{}}
+    \toprule
+    & & \multicolumn{3}{c}{PPO} & \multicolumn{3}{c}{FuN} \\
+    \cmidrule(lr){3-5}\cmidrule(lr){6-8}
+    Board & Mag. & Recovery & Dip & Adapt.\ cost & Recovery & Dip & Adapt.\ cost \\
+    & & (games) & (win rate) & (k steps) & (games) & (win rate) & (k steps) \\
+    \midrule
+    $9\times9$ & Low & 6\,$\pm$\,4 & 0.07 & 2.8 & 92\,$\pm$\,37 & 0.23 & 18.9 \\
+     & Med & 22\,$\pm$\,12 & 0.13 & 10.7 & 316\,$\pm$\,146 & 0.30 & 42.5 \\
+     & High & 18\,$\pm$\,7 & 0.14 & 7.0 & 693\,$\pm$\,214 & 0.30 & 100.5 \\
+    \midrule
+    $13\times13$ & Low & 0\,$\pm$\,0 & 0.10 & 18.5 & 21\,$\pm$\,7 & 0.16 & 36.8 \\
+     & Med & 2\,$\pm$\,1 & 0.11 & 17.3 & 90\,$\pm$\,51 & 0.24 & 76.3 \\
+     & High & 48\,$\pm$\,25 & 0.17 & 19.4 & 104\,$\pm$\,59 & 0.27 & 120.2 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}

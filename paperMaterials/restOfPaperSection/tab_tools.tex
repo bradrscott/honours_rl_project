@@ -1,0 +1,30 @@
+% ── Compute / software stack (Section 3.5, appendix) ── requires booktabs
+% Reproducibility: clusters used, key software versions (as pinned in the
+% rl_project conda environment), and the logging setup.
+\begin{table}[t]
+  \centering
+  % Add your own \caption{...} here.
+  \label{tab:tools}
+  \small
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    Component & Detail \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Compute}}\\
+    UCT HPC       & CPU (SLURM, \texttt{ada} partition); L40S GPU for some runs \\
+    CHPC Lengau   & CPU (PBS Pro) \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Software}}\\
+    Python                       & 3.10 \\
+    PyTorch                      & 2.11 \\
+    PettingZoo (\texttt{go\_v5}) & 1.25 \\
+    Gymnasium                    & 1.2 \\
+    NumPy                        & 2.2 \\
+    GNU~Go (skill reference)     & 3.8 \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Logging}}\\
+    Training metrics    & Weights \& Biases \\
+    Per-game records    & CSV (\texttt{games.csv}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}

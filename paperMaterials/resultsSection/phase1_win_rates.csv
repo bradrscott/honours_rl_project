@@ -1,0 +1,11 @@
+board,opponent,ppo_win_rate,fun_win_rate
+9x9,greedy,0.99,0.755
+9x9,defensive,0.995,0.78
+9x9,corner,1,0.88
+9x9,edge,1,0.6
+9x9,random,0.98,0.635
+13x13,greedy,0.925,0.74
+13x13,defensive,0.89,0.64
+13x13,corner,0.835,0.54
+13x13,edge,0.685,0.87
+13x13,random,0.98,0.83

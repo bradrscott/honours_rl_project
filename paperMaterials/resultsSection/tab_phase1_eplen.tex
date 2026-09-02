@@ -1,0 +1,21 @@
+% ── Phase-1 average game length (environment steps) per agent x opponent x board ──
+% requires \usepackage{booktabs}. Bold marks the shorter (more decisive) game.
+\begin{table}[t]
+  \centering
+  % Add your own \caption{...} here.
+  \label{tab:phase1-eplen}
+  \small
+  \begin{tabular}{@{}l cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$9\times9$} & \multicolumn{2}{c}{$13\times13$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Opponent & PPO & FuN & PPO & FuN \\
+    \midrule
+    Greedy & \textbf{51} & 76 & \textbf{156} & 284 \\
+    Defensive & \textbf{37} & 45 & \textbf{119} & 124 \\
+    Corner & \textbf{38} & 86 & \textbf{156} & 528 \\
+    Edge & \textbf{43} & 46 & \textbf{191} & 350 \\
+    Random & \textbf{49} & 87 & \textbf{119} & 167 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

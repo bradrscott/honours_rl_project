@@ -1,19 +1,20 @@
 %% ============================================================
-%%  Honours FINAL PAPER SCAFFOLD — RQ3
-%%  Feudal Networks vs flat PPO: recovery after opponent shifts in Go
+%%  Honours FINAL PAPER  — RQ3
+%%  Does a feudal reinforcement learning improve recovery time
+%% following abrupt opponent strategy shifts, compared to flat RL
+%% approach (PPO)?
 %%
 %%  ACM acmart, thesis config (sigconf two-column, nonacm = no ACM footers).
 %%  Compile on Overleaf with pdfLaTeX.
 %%
-%%  SCAFFOLD RULES followed here:
-%%   - Abstract = COMPLETE first draft.
-%%   - All other sections = PLANNED: short bullets saying WHAT will be written
-%%     (not the prose), with [TBD] where numbers/results are not yet final.
 %% ============================================================
 \documentclass[sigconf,nonacm]{acmart}
 \settopmatter{printacmref=false}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+
 
 \begin{document}
 
@@ -23,195 +24,787 @@
 \author{Brad Scott}
 \affiliation{%
   \institution{University of Cape Town}
-  \department{Department of Computer Science}
   \city{Cape Town}
   \country{South Africa}}
 \email{sctbra008@myuct.ac.za}
 
-%% -------------------- ABSTRACT: complete first draft --------------------
+%% ABSTRACT: complete first draft
 \begin{abstract}
-Reinforcement learning is increasingly applied to competitive settings in which
-an opponent's behaviour is not fixed. When that behaviour changes abruptly, the
-resulting non-stationarity can invalidate a previously effective policy.
-Hierarchical architectures are widely expected to re-adapt faster than flat ones
-in such situations, yet this expectation has rarely been tested directly against
-a shifting opponent. This work investigates whether a hierarchical Feudal
-Network (FuN) recovers more quickly than a flat Proximal Policy Optimization
-(PPO) agent following abrupt opponent strategy shifts in the game of Go. Both
+Reinforcement learning has been increasingly applied to competitive environments in which
+an opponent's behaviour is not fixed. When an opponent's behaviour changes abruptly, the
+resulting non-stationarity can invalidate a previously effective policy. Hierarchical architectures are widely expected to re-adapt faster
+than flat ones in such situations, yet this expectation has rarely been tested
+directly against a shifting opponent. This work investigates whether a
+hierarchical Feudal Network (FuN) recovers more quickly than a flat Proximal
+Policy Optimization (PPO) agent following abrupt opponent strategy shifts in the
+game of Go. Both
 agents are trained against fixed heuristic opponents in PettingZoo's
 \texttt{go\_v5} on $9\times9$ and $13\times13$ boards, after which mid-training
 opponent shifts of varying magnitude and frequency are introduced. Their effect
 is measured by recovery time, together with the depth and overall cost of the
 resulting performance drop, over multiple random seeds. Across the conditions
 examined, the hierarchical agent does not recover faster than the flat baseline.
-These findings suggest that the FuN hierarchy does not provide the expected
-advantage under opponent-induced non-stationarity.
+These findings suggest that the FuN hierarchy does not provide
+the expected advantage under opponent-induced non-stationarity.
 \end{abstract}
 
 \maketitle
 
-%% ==================== PLANNED SECTIONS (bullets) ====================
-
+%% INTRODUCTION complete first draft
 \section{Introduction}
+
+%% Motivate: real opponents change strategy mid-interaction - the agent's
+%% policy suddenly underperforms and must re-adapt (non-stationarity).
 Reinforcement learning (RL) is a framework in which an agent learns how to
-behave by interacting with an environment. The agent observes different states,
-takes actions on those states and receives a reward, gradually adjusting its
-behaviour to maximise these rewards it collects over
-time~\cite{sutton2018reinforcement}. Through repeated trial and error the agent
-learns a policy, a function that maps each state to an action. Such a policy
-works well as long as the environment stays the same, but many real settings are
-not static. In competitive games in particular, an opponent does not play the
-same way forever and may change its strategy as the game unfolds. When the
-opponent changes, the conditions the agent originally learned against no longer
-hold, so behaviour that was once effective can suddenly perform poorly. This
-effect, in which the environment an agent faces shifts because the opponent's
-behaviour changes, is known as
-non-stationarity~\cite{hernandezleal2017survey}, and it is the central
+behave by interacting with an environment. The agent observes different states, takes actions on those states and receives a reward, gradually adjusting its behaviour to maximise these rewards
+it collects over time~\cite{sutton2018reinforcement}. Through repeated trial and
+error the agent learns a policy, a function that maps each state to an action. Such a policy works well as long as the environment stays the same, but many real settings are not static. In
+competitive games in particular, an opponent does not play the same way forever
+and may change its strategy as the game unfolds. When the opponent changes, the
+conditions the agent originally learned against no longer hold, so behaviour
+that was once effective can suddenly perform poorly. This effect, in which the
+environment an agent faces shifts because the opponent's behaviour changes, is
+known as non-stationarity~\cite{padakandla2022survey}. This is the central
 difficulty this work addresses. An agent that cannot adjust quickly after such a
-change suffers a lasting drop in performance, which motivates investigating how
-the architecture of a learning agent affects how quickly it recovers once an
+change, suffers a lasting drop in performance, which motivates investigating how the
+architecture of a learning agent affects how quickly it recovers once an
 opponent shifts strategy.
 
-\begin{itemize}
-  \item The idea under test: a manager/worker hierarchy should recover faster.
-\end{itemize}
+%% The idea under test: a manager/worker hierarchy should recover faster.
+A learning agent is commonly implemented as a flat policy, which is a single network that maps observations directly to actions. A widely used example of this design is Proximal Policy Optimization (PPO)~\cite{schulman2015trust}. When the opponent shifts, a flat agent has to
+revise this single policy as a whole, which can be slow and risks overwriting
+behaviour that is still useful. An alternative design is a hierarchical agent, which
+splits decision-making across levels. The Feudal Network (FuN)~\cite{dayan1993feudal, vezhnevets2017feudal} is one instance of this structure, in which a high-level manager sets goals over a longer timescale while a low-level worker chooses the primitive actions that pursue them. The idea this research tests is that this hierarchy should recover faster after an opponent changes strategy. The manager can switch to a new high-level plan while the worker keeps the low-level skills it has already acquired, so less has to be relearned than in a flat agent. However, this advantage has largely been demonstrated for adaptation to new tasks rather than to an opponent that changes strategy during game-play.
 
 \subsection{Research Question}
-\begin{itemize}
-  \item State RQ3 exactly. Describe the setting: the game of Go, against fixed
-        rule-based heuristic opponents on two board sizes ($9\times9$ and
-        $13\times13$).
-  \item What this work adds: (i) a controlled opponent-shift recovery benchmark
-        in Go; (ii) a tested FuN vs PPO comparison under identical conditions,
-        across shift magnitude, frequency and board size, (iii) three recovery
-        measures and what each can and cannot detect.
-  \item Main finding: the hierarchy did not improve recovery.
-  \item Roadmap: preview the remaining sections - Related Works, Design and
-        Implementation, Results, Discussion, and Conclusions.
-\end{itemize}
+
+%%State RQ3 exactly. Describe the setting: the game of Go, against fixed
+%%        rule-based heuristic opponents on two board sizes ($9\times9$ and
+%%        $13\times13$).
+The gap of whether the hierarchical structure of learning agents adapts to changing strategic opponents motivates the central research question of this work: \emph{Does a
+feudal reinforcement learning improve recovery time following abrupt opponent
+strategy shifts, compared to flat RL approach (PPO)?} The question is studied in
+the board game Go, where a hierarchical Feudal Network and a flat PPO agent are
+each trained against fixed heuristic opponents and then subjected to abrupt
+strategy shifts, on two board sizes, $9\times9$ and $13\times13$.
+
+%%  \item What this work adds: (i) a controlled opponent-shift recovery
+%%        benchmark in Go; (ii) a tested FuN vs PPO comparison under identical
+%%        conditions, across shift magnitude, frequency and board size, (iii)
+%%        three recovery measures and what each can and cannot detect.
+The study is built around three main elements. First, a controlled benchmark is
+developed for measuring recovery from opponent strategy shifts in Go. The timing, magnitude and frequency of each shift are fixed in advance so that recovery can be measured cleanly. Second, a Feudal Network and a flat PPO agent
+are compared under identical conditions, matched across shift magnitude,
+frequency and board size. Any difference in recovery therefore reflects the architecture rather than the experimental setup. Third, recovery is assessed
+using four complementary measures, each capturing a different aspect of the
+process. Altogether, these measures provide a clear and controlled test of recovery.
+
+%% Main finding: the hierarchy did not improve recovery.
+The question this work pursues is whether the structure of the learning agent
+governs how quickly a policy recovers once a shift in an opponent's strategy has
+left it ineffective. A flat PPO agent and a hierarchical Feudal Network are trained to a
+common standard, then exposed to the same abrupt opponent shifts under matched
+conditions in Go. This yields a direct test of whether the recovery advantage expected of hierarchy holds when the disruption comes from a shifting opponent rather than a new task. The study finds that this advantage does not
+materialise. The sections that follow develop this result and examine why it
+arises.
+
+%% Roadmap: preview the remaining sections - Related Works, Design and Implementation, Results, Discussion, and Conclusions.
+The remainder of the paper is organised as follows. Section 2 reviews related
+work on non-stationarity, flat and hierarchical reinforcement learning, and on
+the measurement of adaptation and recovery. Section 3 sets out the design and
+implementation, covering the environment and opponents, the two agents, the
+experimental design and the recovery metrics plus tools used. Section 4 presents the results for
+both agents across all conditions. Section 5 discusses what the results reveal about
+the role of hierarchy in recovery. Section 6 concludes and outlines directions
+for future work.
+
+
 
 \section{Related Works}
 % A SYNTHESISED discussion that builds to the gap — not a list of papers.
 % Keep it only as long as it needs to be. Opening frame, then subsections,
 % then close on the gap.
-\begin{itemize}
-  \item Open with: flat versus hierarchical RL, both of which must handle a
-        shifting opponent - followed by a preview of subsections.
-  \item Well-known RL work on Go, such as AlphaGo, as background context.
-\end{itemize}
 
-\subsection{Non-stationarity in Multi-Agent RL}
-\begin{itemize}
-  \item Non-stationarity / opponent-induced dynamics in multi-agent RL; why a
-        shift breaks a learned policy.
-\end{itemize}
+%% Open with: flat versus hierarchical RL, both of which must handle a shifting opponent - followed by a preview of subsections.
+How far an agent's performance falls when an opponent shifts strategy, and how
+quickly it recovers, depends both on the nature of that change and on how the
+agent itself is organised. This section reviews the research behind this,
+building from the background of reinforcement learning in Go to the mechanisms
+by which a strategy shift disrupts a learned policy and an agent's design shapes
+its recovery. It begins by setting the scene with Go and the reinforcement
+learning results achieved on it. Secondly, it considers how a shifting opponent gives rise to non-stationarity
+and why this undermines a previously learned policy. Thirdly, it goes on to review flat
+and hierarchical reinforcement learning, introducing the PPO agent and the Feudal
+Network that this study compares. Finally it turns to how adaptation and recovery
+have been measured, which frames the metrics used and leads to the
+gap the work sets out to address.
+
+%% Well-known RL work on Go, such as AlphaGo, as background context.
+\subsection{Reinforcement Learning in Go}
+Go is an ancient two-player board game that originated in China more than two
+thousand years ago and is still widely played. The players take turns placing
+black and white stones on the intersections of a square grid. Both players can see the whole board at all times, so no
+information is hidden from either side. A stone or connected group is captured
+and removed once opposing stones occupy every point beside it. The winner is the
+player who controls the larger share of the board at the end. This is decided by
+area scoring, which counts both the territory a player surrounds and the stones
+it has in play~\cite{silver2016mastering}. Moving first is an advantage, so a
+fixed number of points called komi is added to the second player's score to keep
+the game balanced. Play continues until both players pass in succession, by which point a typical
+game has run to a few hundred moves.
+
+Although its rules are simple, Go is extremely hard to play well. For many years
+this difficulty made it a landmark challenge for artificial intelligence. At each
+turn a player has a very large number of legal moves to choose from, and a full
+game lasts hundreds of turns, giving Go a space of possible games far larger
+than in chess~\cite{silver2016mastering}. Playing well is not only about the current move.
+It also demands long-term planning, since a stone placed early can prove decisive
+many moves later. The search-based programs that had already mastered chess could
+not cope with this scale, as there are far too many moves to examine~\cite{campbell2002deepblue}. Progress
+instead came from reinforcement learning, in which an agent improves by playing
+the game and learning from the outcomes rather than by searching through every
+possibility.
+
+The breakthrough came with AlphaGo, which combined neural networks with
+look-ahead search and millions of games of self-play to beat a professional
+human player~\cite{silver2016mastering}, a milestone that drew broad attention
+to reinforcement learning. The field has since spread well beyond board games to
+real-world problems, where the conditions an agent faces rarely stay the
+same~\cite{padakandla2022survey}. Systems like AlphaGo, though, were trained under
+stable conditions, improving against themselves or against fixed opponents rather
+than against an opponent that changes strategy midway through a game. This study
+uses Go differently. Go is a game of perfect information, with no hidden state or
+element of chance. Any difference in how two agents handle a mid-game change of
+opponent can therefore be traced to their architecture, and not to luck or to
+information they could not see.
+
+%% non-stationary and why shifts effect policies
+\subsection{Opponent-Induced Non-stationarity}
+\subsubsection{Non-stationarity from a Changing Opponent}
+In standard reinforcement learning the environment is assumed to be stationary.
+Its transition and reward dynamics stay fixed throughout
+learning~\cite{sutton2018reinforcement}. When
+an agent trains against an opponent, that opponent's behaviour becomes part of
+the dynamics the agent learns to exploit. If the opponent later plays
+differently, those dynamics change, and the experience the agent has gathered no
+longer describes the game in front of it~\cite{littman1994markov}. This shifting
+of the environment is what is meant by non-stationarity, and learning to cope
+with it has been a recurring focus of reinforcement learning
+research~\cite{busoniu2008overview, padakandla2022survey}.
+
+\subsubsection{Why a Strategy Shift Breaks a Learned Policy}
+A policy is only as good as the conditions it was trained under. Through repeated
+play the agent settles on actions that worked well against the previous opponent,
+together with value estimates that reflect how that opponent responded. When the
+opponent shifts, the same positions begin to arise from different play. Actions
+that were once rewarded may no longer be. The agent's value estimates also stop
+matching what it now observes. Performance therefore drops at the moment of the
+shift, sometimes sharply. The metric only recovers once the agent has gathered enough
+experience of the new opponent to correct its policy~\cite{he2016opponent}. The speed of that recovery is the central concern of this work. It is shaped in large part by how the agent
+is built.
 
 \subsection{Flat and Hierarchical RL}
-\begin{itemize}
-  \item Flat on-policy RL: PPO - the baseline under test.
-  \item Hierarchical RL and Feudal Networks: Manager--Worker, temporal
-        abstraction, intrinsic sub-goal reward; note the claims that it adapts
-        to a different opponent.
-\end{itemize}
+%%Flat on-policy RL: PPO - the baseline under test.
+\subsubsection{Flat Policies and PPO}
+The simplest way to build a learning agent is as a flat policy. A single network
+maps each observation directly to a choice of action, with no internal division
+of the decision into levels. Proximal Policy Optimization (PPO) is a widely used
+method of this kind~\cite{schulman2015trust}. PPO is an on-policy algorithm that
+improves the policy in small steps to keep training stable. This design is simple
+and effective, but it holds all of the agent's behaviour in one set of
+parameters. When the opponent shifts, the agent cannot change part of its
+behaviour while keeping the rest fixed. It must revise the whole policy at once.
+Useful skills can be overwritten in the process. This is the weakness that a
+hierarchical design sets out to avoid.
+
+%% Hierarchical RL and Feudal Networks: Manager--Worker, temporal abstraction, intrinsic sub-goal reward; note the claims that it adapts to a different opponent.
+\subsubsection{Hierarchical Reinforcement Learning and Feudal Networks}
+Hierarchical reinforcement learning takes a different approach, dividing control
+across two levels of decision-making~\cite{pateria2021survey}. A
+high-level policy plans over the long term by setting sub-goals, while a
+low-level policy chooses the individual moves that work towards them and is
+guided by an intrinsic reward for reaching each sub-goal~\cite{kulkarni2016hierarchical}.
+A single sub-goal covers many moves, so the high-level policy sets far fewer
+sub-goals than the low-level policy makes moves. This compression of the problem is known as temporal
+abstraction~\cite{sutton1999between}. The Feudal Network (FuN) is a neural
+instance of this idea, built on early feudal reinforcement
+learning~\cite{dayan1993feudal}. A Manager sets a high-level goal at intervals and a
+Worker acts at every step to follow it~\cite{vezhnevets2017feudal}. This
+separation is what makes the structure appealing for a changing opponent, since
+the Manager can adopt a new plan while the Worker keeps its low-level skills.
 
 \subsection{Measuring Adaptation and Recovery}
-\begin{itemize}
-  \item Recovery-time / adaptation-speed metrics; how the recovery measure
-        relates and contrasts with catastrophic-forgetting work.
-\end{itemize}
+%% Recovery-time / adaptation-speed metrics; how the recovery measure relates and contrasts with catastrophic-forgetting work.
+\subsubsection{Adaptation and Recovery metrics}
+The effect of a change is measured by how quickly an agent returns to its former
+level of performance, usually called recovery time or adaptation
+speed~\cite{alshedivat2018continuous}. This is related to work on catastrophic
+forgetting, but the two differ. Forgetting concerns how much of a previously
+learned skill is lost when a network is trained on a new
+task~\cite{kirkpatrick2017overcoming}. Recovery instead concerns how quickly
+current performance returns once a single opponent has changed. This study tracks
+performance as a rolling win rate over a fixed window of games. Recovery is
+measured as the number of games the win rate stays below a set fraction of its
+pre-shift value, together with how far the win rate falls and how much is lost
+while it remains below. These measures are defined in full in the experimental design to follow.
 
 % Close the section on the gap:
-\begin{itemize}
-  \item State the gap this paper fills: HRL vs flat recovery under an opponent
-        shift, tested directly.
-\end{itemize}
+%% State the gap this paper fills: HRL vs flat recovery under an opponent shift, tested directly.
+\subsubsection{Recovery Under an Opponent Shift}
+This section has traced how a changing opponent creates non-stationarity. It has
+contrasted flat and hierarchical agents and shown how recovery is measured. These
+lines of work have not yet been brought together.
+How a hierarchical agent recovers when an opponent changes strategy has rarely
+been examined directly. It has seldom been set against a flat agent under matched
+conditions. This study provides that comparison, using recovery from a controlled
+opponent shift in Go as its test.
+
 
 \section{Design and Implementation}
-\begin{itemize}
-  \item Open with: brief outline of the section - the environment and
-        opponents, the agents, the experimental design (Phase 1 and Phase 2),
-        the metrics, and the tools used.
-\end{itemize}
+
+%% Open with: brief outline of the section - the environment and opponents, the agents, the experimental design (Phase 1 and Phase 2), the metrics, and the tools used.
+This section describes how the research was built and carried out. Section~3.1
+introduces the environment and the fixed opponents the agents were trained
+against. Section~3.2 presents the two agents under comparison, the flat PPO agent
+and the hierarchical Feudal Network. Section~3.3 sets out the experimental design,
+split into two phases. Phase~1 trains each agent to a stable baseline. Phase~2
+introduces the abrupt opponent shifts and measures their effect. Section~3.4
+defines the metrics used to assess recovery. Section~3.5 describes the tools and
+computing setup used to run the experiments.
 
 \subsection{Environment and Opponents}
-\begin{itemize}
-  \item \textbf{Environment:} PettingZoo \texttt{go\_v5}; $9\times9$ (komi 5.5)
-        and $13\times13$ (komi 7.5); area scoring. Note the move-cap /
-        forced-termination handling.
-  \item \textbf{Fixed opponents:} five heuristic bots (greedy, defensive,
-        corner, edge, random), description of each style.
-\end{itemize}
+%% \textbf{Environment:} PettingZoo \texttt{go\_v5}; $9\times9$ (komi 5.5) and $13\times13$ (komi 7.5); area scoring. Note the move-cap / forced-termination handling.
+
+\subsubsection{Environment}
+All experiments are run in \texttt{go\_v5}, the Go environment from the PettingZoo
+library~\cite{terry2021pettingzoo}, which provides a standard and reliable
+implementation of the full rules of play. In each game the trained agent controls
+one colour while a fixed opponent controls the other. Two board sizes are studied as seen in Figure~\ref{fig:boards}. The first is a $9\times9$ board
+with a komi of 5.5 and the second is a $13\times13$ board with a komi of 7.5. These
+sizes balance strategic depth against the cost of training, since a smaller board
+shortens each game and allows many more to be played within a fixed budget of
+training steps. Komi
+adds a fixed number of points to the second player's score to offset the
+advantage of moving first.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=0.6\linewidth]{figs/fig_boards.png}
+  \caption{The two board sizes illustrated in PettingZoo \texttt{go\_v5}.}
+  \label{fig:boards}
+\end{figure}
+
+At each turn the agent receives the board as a stack of seventeen binary planes of
+size $N\times N$, where $N$ is the board dimension (9 or 13). These planes record
+the stones of both players over recent moves along with the colour to
+play~\cite{silver2017mastering}. This is illustrated in Figure~\ref{fig:obs-encoding}. For the agents own move it chooses among the $N\times N$ intersections or a single pass.
+
+Two design choices ensure that every game ends in a clean, decisive result.
+First, the opponents are built to keep playing while worthwhile moves remain,
+rather than passing early. In Go the game ends as soon as both
+players pass in succession, and the board is then scored exactly as it stands. An
+opponent that passed while territory was still contested would therefore end the
+game on an unfinished position, so the result would hinge on the arbitrary moment
+it chose to stop rather than on how well either side had played. By playing the position out, each
+opponent forces a full contest for territory, so the agent must genuinely control
+more of the board to win. Second, we impose a fixed cap on the number of moves
+per game. This prevents the rare case where two deterministic players could
+continue indefinitely under area scoring. When the cap is reached, both players
+are forced to pass, so the environment always returns a final score. Together
+these choices give every game a clear area result, which provides the consistent
+performance signal the recovery analysis depends on.
+
+%% \textbf{Fixed opponents:} five heuristic bots (greedy, defensive, corner, edge, random), description of each style.
+\subsubsection{Fixed Opponents}
+
+The agents are trained against a set of five fixed opponents, each following a
+simple hand-coded strategy. Every opponent plays deterministically and reacts
+only to the current board, so its behaviour is stable and repeatable. This makes
+it possible to switch opponents at set points during training and to be confident
+that any resulting change in the agent's performance stems from the switch itself,
+not from variation in how the opponent plays.
+
+The five styles differ in what they value, summarised in Table~\ref{tab:opponents}. The greedy opponent takes the largest
+available area on each move and captures only when a capture is offered. It does
+not hunt the agent's stones, so it tends to build thin, loosely held positions.
+The defensive opponent focuses on its own groups, connecting stones and
+protecting liberties while avoiding unnecessary contact. The corner opponent
+plays sound contact moves with a soft lean towards one corner of the board. The
+edge opponent behaves similarly but leans towards the sides. The random opponent
+selects a legal move uniformly at random on every turn. It serves as a baseline
+with no strategy at all. The four strategic opponents are deliberately imperfect.
+They follow their chosen style but do not avoid basic tactical mistakes, which
+keeps each one beatable by a trained agent. Figure~\ref{fig:opponents} shows a
+representative position for each style. The move-density heatmaps in Figure~\ref{fig:opponent-heatmaps} make each style
+clearer still, showing where each opponent tends to place its stones over many
+games.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_opponents_5panel.png}
+  \caption{Representative positioning for each fixed opponent.}
+  \label{fig:opponents}
+\end{figure}
+
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_opponent_heatmaps.png}
+  \caption{Move-density heatmaps}
+  \label{fig:opponent-heatmaps}
+\end{figure}
 
 \subsection{Agents}
-\begin{itemize}
-  \item \textbf{Agents:} PPO (action-masked categorical policy, shared CNN
-        backbone); FuN (matched CNN perception, Manager dilated-LSTM trained on
-        extrinsic reward, Worker trained on intrinsic cosine reward). State that
-        both share observation preprocessing and backbone so the comparison is
-        architectural; note key implementation corrections made to FuN.
-\end{itemize}
+%% \textbf{Agents:} PPO (action-masked categorical policy, shared CNN backbone); FuN (matched CNN perception, Manager dilated-LSTM trained on extrinsic reward, Worker trained on intrinsic cosine reward). State that both share observation preprocessing and backbone so the comparison is architectural; note key implementation corrections made to FuN.
+Two agents are compared, a flat agent and a hierarchical one. Both take the same
+board observation and pass it through the same lower network. This shared network,
+called the backbone, is a convolutional neural network (CNN) that converts the raw board into a compact internal
+representation. They also share the same observation preprocessing. The only
+difference between them is the structure placed on top of this backbone. Any
+difference in behaviour can therefore be attributed to the architecture rather
+than to the input or the backbone itself. Figure~\ref{fig:agents} below shows an example of the two different agents architecture.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_agents.png}
+  \caption{The two agents architecture}
+  \label{fig:agents}
+\end{figure}
+
+\subsubsection{Flat Agent (PPO)}
+The flat agent is a single network trained with Proximal Policy
+Optimization~\cite{schulman2015trust}. \footnote{The PPO
+implementation is adapted from
+\url{https://github.com/adi3e08/PPO}.} The CNN backbone converts the board into an
+internal representation. From this representation the network produces two
+outputs. The first is a probability distribution over the possible moves, which
+the agent samples to decide where to play. The second is an estimate of how
+favourable the current position is, which guides learning. Before a move is
+sampled, illegal moves are removed so that only legal placements or a pass can be
+selected~\cite{huang2022masking}. Due to everything sitting in one network, a change in strategy has to be
+learned by updating the whole policy at once.
+
+\subsubsection{Hierarchical Agent (Feudal Network)}
+The hierarchical agent is a Feudal Network~\cite{vezhnevets2017feudal,
+dayan1993feudal}. \footnote{The Feudal Network implementation is adapted from
+\url{https://github.com/lweitkamp/feudalnets-pytorch}.} It shares the same backbone as the flat agent, then splits into
+a Manager and a Worker. The Manager acts less often and sets a goal as a direction
+in the network's latent space. It uses a dilated long short-term memory network, known as a dilated LSTM,
+which retains information over many steps~\cite{hochreiter1997lstm}. From this alone it learns the game outcome. The Worker acts at every step. It selects the move
+that best follows the Manager's current goal. It is trained by an intrinsic reward
+that measures how closely the change in the agent's state matches the direction
+the Manager set. Due to this signal arriving at every step, the Worker keeps
+learning even though the game's own reward comes only at the end.
+
+Several corrections were needed before the hierarchy trained correctly.  In the
+implementation inherited at the start of the study, the Manager's goal was
+detached from the computation graph on every step. This removed the gradient the
+Manager needs to learn useful goals, so the hierarchy stayed inactive. The same
+handling also limited the dilated memory to a single step. Once the goal gradient
+and the recurrent memory were restored, the Manager began to set meaningful goals. Beyond these corrections, both agents' hyperparameters were tuned for stable
+training. The key settings are listed in Table~\ref{tab:hyperparams}.
+
+\begin{table}[H]
+  \centering
+  \caption{Key hyperparameters}
+  \label{tab:hyperparams}
+  \footnotesize
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Hyperparameter & PPO & FuN \\
+    \midrule
+    \multicolumn{3}{@{}l}{\emph{Shared training setup}}\\
+    Learning rate          & $3\times10^{-4}$ & $2\times10^{-4}$ \\
+    GAE $\lambda$          & 0.95             & 0.95 \\
+    Entropy coefficient    & 0.01             & 0.01 \\
+    Rollout length         & 2048             & 400 \\
+    Discount $\gamma$      & 0.99             & 0.995 / 0.99 \\
+    \midrule
+    \multicolumn{3}{@{}l}{\emph{PPO-specific}}\\
+    Minibatch size         & \multicolumn{2}{@{}r}{256} \\
+    Epochs per update      & \multicolumn{2}{@{}r}{4} \\
+    Clip range $\epsilon$  & \multicolumn{2}{@{}r}{0.2} \\
+    \midrule
+    \multicolumn{3}{@{}l}{\emph{FuN-specific}}\\
+    Manager horizon $c$      & \multicolumn{2}{@{}r}{15} \\
+    Manager latent dim $d$   & \multicolumn{2}{@{}r}{256} \\
+    Worker embedding $k$     & \multicolumn{2}{@{}r}{16} \\
+    Intrinsic weight $\alpha$ & \multicolumn{2}{@{}r}{0.5} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
 
 \subsection{Experimental Design}
-\begin{itemize}
-  \item \textbf{External reference:} GNU~Go, to reference agent strength before
-        the comparison.
-  \item \textbf{Phase 1:} train each agent against each opponent to a stable
-        win-rate baseline; this baseline defines the recovery target.
-  \item \textbf{Phase 2:} resume a Phase-1 checkpoint, then apply abrupt
-        opponent shifts.
-        \begin{itemize}
-          \item Magnitudes, calibrated by observed disruption: LOW
-                corner$\to$edge, MED corner$\to$defensive, HIGH
-                greedy$\to$defensive.
-          \item Frequencies: f1 single shift, f2 periodic, f3 frequent.
-          \item Design table: $3$ magnitudes $\times$ $3$ frequencies $\times$
-                $2$ agents $\times$ $2$ boards $\times$ $3$ seeds.
-        \end{itemize}
-  \item \textbf{Table of experiments:} summarise the runs in a table - columns
-        for condition, what is measured, and purpose.
-  \item \textbf{Parameters:} exact shift schedules and step budgets.
-\end{itemize}
+
+%% \textbf{Table of experiments:} summarise the runs in a table - columns for condition, what is measured, and purpose.
+ \begin{table*}[t]
+  \centering
+  \caption{Table of experiments}
+  \label{tab:experiments}
+  \footnotesize
+  \renewcommand{\arraystretch}{0.85}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{2.1cm} p{6.4cm} p{7.1cm}@{}}
+    \toprule
+     & \textbf{Phase 1 --- Capability} & \textbf{Phase 2 --- Shift \& Recovery} \\
+    \midrule
+    Purpose
+      & Train agents to a stable per-opponent win-rate baseline
+      & Measure recovery after abrupt opponent strategy shifts \\
+    \addlinespace[3pt]
+    Agents      & PPO, FuN & PPO, FuN \\
+    Board sizes & $9{\times}9$,\ \ $13{\times}13$ & $9{\times}9$,\ \ $13{\times}13$ \\
+    Opponents
+      & greedy, defensive, corner, edge, random
+      & Shifting: corner$\to$edge, corner$\to$defensive, greedy$\to$defensive. \\
+    Shift frequency & --- & f1 (single), f2 (periodic), f3 (frequent) \\
+    Steps per run   & 3M ($9{\times}9$),\ \ 5M ($13{\times}13$) & 2.3M ($9{\times}9$),\ \ 4.0M ($13{\times}13$) \\
+    Seeds           & 1 & 3\ \ (0,\ 1,\ 2) \\
+    \addlinespace[1pt]
+    Runs
+      & $2 \times 5 \times 2 = 20$
+      & $3 \times 3 \times 2 \times 2 \times 3 = 108$ \\
+    Recorded
+      & rolling win rate (the baseline)
+      & disruption rate, recovery time, dip depth, adaptation cost \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+%% \textbf{External reference:} GNU~Go, to reference agent strength before the comparison.
+\subsubsection{External Reference (GNU Go)}
+The five heuristic opponents are custom and deliberately imperfect, so they give
+no absolute sense of how strong the trained agents are. As a reference point, GNU
+Go is played against each opponent. GNU Go is an established rule-based engine that
+plays Go without learning~\cite{gnugo}. On both board sizes it beats every
+opponent by a wide margin (Table~\ref{tab:gnugo}), which fixes a strong upper reference for play against
+them. The trained agents are then read against this reference. It shows whether
+each agent reaches the level of a competent engine on the same opponents, or falls
+short.
+
+%% \textbf{Phase 1:} train each agent against each opponent to a stable win-rate baseline; this baseline defines the recovery target.
+\subsubsection{Phase 1: Baseline Training}
+Phase 1 measures how well each agent can learn to play a single fixed opponent.
+Each agent is trained from scratch against each of the five opponents, one
+opponent per run, so no run mixes opponents. Both agents use identical training
+settings and the same step budget, so the only difference between them remains the
+architecture.
+
+Performance during training is tracked as a rolling win rate over recent games.
+This win rate climbs as the agent learns the opponent, then settles once further
+gains are small. The settled value is taken as the agent's baseline against that
+opponent. This baseline sets the target for Phase 2, where the same agent must
+recover to it after the opponent changes.
+
+%% \item \textbf{Phase 2:} resume a Phase-1 checkpoint, then apply abrupt opponent shifts.
+
+          %% Magnitudes, calibrated by observed disruption: LOW corner$\to$edge, MED corner$\to$defensive, HIGH greedy$\to$defensive
+
+          %% Frequencies: f1 single shift, f2 periodic, f3 frequent.
+
+          %% Design table: $3$ magnitudes $\times$ $3$ frequencies $\times$ $2$ agents $\times$ $2$ boards $\times$ $3$ seeds.
+
+\subsubsection{Phase 2: Opponent Shifts}
+Phase 2 introduces the abrupt opponent shifts the study is built around, shown as
+part of the pipeline in Figure~\ref{fig:pipeline}. Each run resumes a stable
+Phase-1 checkpoint, so the agent begins from a known baseline against a known
+opponent. Partway through, that opponent is replaced by a different one. Every
+shift is between two opponents that both agents can already beat, so a drop in
+performance reflects the disruption of the change itself rather than a jump to an
+unbeatable opponent. Training continues after the shift and the agent is left to
+recover on its own.
+
+\paragraph{Shift magnitude.} Three magnitudes are used, set by how much disruption
+each one causes rather than by any fixed rule. The size of a shift follows from how
+far apart the two opponents' styles are. A LOW shift moves from the corner opponent
+to the edge opponent. Both actively contest position and differ only in the region
+of the board they favour, so the change is small. A MED shift moves from the corner
+opponent to the defensive opponent. This replaces an aggressive, position-fighting
+style with a cautious one that consolidates its own groups and avoids
+confrontation. A HIGH shift moves from the greedy opponent to
+the defensive opponent. The greedy opponent seizes the largest open areas of the
+board, while the defensive opponent holds firm and refuses exchanges. The two
+therefore demand very different responses, which makes this the most disruptive
+shift and the hardest to recover from. Table~\ref{tab:magnitudes} summarises these magnitudes.
+
+\paragraph{Shift frequency.} Frequency controls how often the opponent changes
+during a run. A single change tests plain recovery. Repeated changes test whether
+the agent can keep adapting when the environment will not settle. Three frequency
+levels are studied, labelled f1, f2 and f3. At f1 the opponent shifts once, which
+isolates recovery from a single disruption. At f2 it shifts a few times at regular
+intervals, so the agent must recover more than once. At f3 it shifts many times in
+quick succession, leaving little time to settle between changes. Crossed with magnitude, this gives nine shift conditions. Figure~\ref{fig:shift-schedule} shows the three schedules on the $9\times9$
+board.
+
+
+\paragraph{Design.} Each condition is run for both agents, on both board sizes, and
+repeated over three random seeds. Crossing all of these gives 108 Phase-2 runs.
+The seeds share the same Phase-1 starting point, so they capture the variability
+of Phase 2 rather than of the initial training. Each run records the outcome of
+every game. Recovery is then measured from these records, using the metrics
+defined in the metrics section to follow.
+
+%% \textbf{Parameters:} exact shift schedules and step budgets.
+\subsubsection{Parameters}
+Every run is given a fixed budget of environment steps, where one step is a single
+move by the agent. The budgets differ by board size because the larger board is
+slower to learn. On the $9\times9$ board, Phase 1 trains for three million steps
+and Phase 2 for a further 2.3 million. On the $13\times13$ board these rise to five
+million and four million, about $1.7$ times larger in each phase. Scaling both
+phases together means an agent has a comparable amount of time to reach its
+baseline and to recover, whichever board it plays. Without this, recovery on the
+slower board could be cut off before it finished.
+
+A shift schedule lists the opponent the agent faces and the exact step at which
+each change happens. Each Phase-2 run loads a Phase-1 checkpoint, then follows its
+schedule while training continues. The first change is placed early, once the
+resumed agent's rolling win rate has settled back to its Phase-1 level against the starting
+opponent. This is at
+300\,000 steps on the $9\times9$ board and 500\,000 on the $13\times13$ board. The
+three frequencies then differ in how many changes follow. At f1 the opponent
+changes once and later changes back. At f2 it changes a few times at even spacing.
+At f3 it changes ten times in steady succession. Due to every schedule being fixed
+beforehand, both agents and all seeds face exactly the same sequence of changes at
+exactly the same steps.
+
+
 
 \subsection{Metrics}
-\begin{itemize}
-  \item \textbf{Metrics used:} Rolling win rate (window $100$ games); recovery
-        time; dip depth; adaptation cost. Description and purpose of each metric.
-\end{itemize}
+%% \textbf{Metrics used:} Rolling win rate (window $100$ games); recovery time; dip depth; adaptation cost. Description and purpose of each metric.
+Performance is measured throughout by a rolling win rate. This is the fraction of
+the last one hundred games that the agent won. A single game is too noisy to read
+on its own, so the rolling average gives a stable signal. The value of this signal
+on the game just before a shift is taken as the pre-shift baseline. Recovery is
+judged against a band set at $0.8$ times that baseline. A shift counts as a
+disruption when the win rate falls below this band. Four further measures then
+describe how often a shift disrupts the agent, and what happens once it does.
+
+\paragraph{Recovery time.} Recovery time is the primary measure. It applies the
+idea of adaptation speed from earlier work to a shifting
+opponent~\cite{alshedivat2018continuous}. It is the number of games the rolling
+win rate stays below the $0.8$ band, counted from the game it first drops below to
+the game it first returns. A shorter recovery time means the agent re-adapts
+faster. If a shift never pushes the win rate below the band, its recovery time is
+zero. If the win rate never climbs back above the band, the agent has not
+recovered. Recovery time is then counted to the end of that shift's segment.
+
+\paragraph{Dip depth.} Dip depth measures how hard performance falls. It is the
+gap between the pre-shift baseline and the lowest rolling win rate reached after
+the shift. Large drops of this kind are a central concern when an agent must cope
+with a changing environment~\cite{padakandla2022survey}. Dip depth captures
+severity rather than speed, so a shift can score a deep dip even when the agent
+recovers quickly.
+
+\paragraph{Adaptation cost.} Adaptation cost combines depth and duration into a
+single number. It is the total performance lost while the win rate sits below the
+baseline, measured as the area between the baseline and the rolling win rate over
+the dip. This is a form of the cumulative loss an agent incurs while it
+re-adapts~\cite{sutton2018reinforcement}. A deep, short dip and a shallow, long
+dip can carry the same cost. It therefore gives an overall measure of the burden a
+shift imposes.
+
+\paragraph{Disruption rate.} Not every shift pushes the win rate below the
+recovery band: an agent that adapts quickly enough may never dip below its
+$0.8$ threshold at all. Disruption rate is the fraction of shifts that do, and
+so measures how often an agent is knocked off its baseline in the first place,
+rather than what happens once it is. This is a necessary complement to the
+other three measures, which are only defined on shifts that already disrupted
+the agent: an agent could otherwise score well on recovery time, dip depth,
+and adaptation cost simply by rarely being disrupted enough to have them
+measured at all. Figure~\ref{fig:metrics} marks all four measures on one real
+recovery segment: the point at which the shift first counts as a disruption,
+and the recovery time, dip depth, and adaptation cost that follow it.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_metrics_annotated.png}
+  \caption{The four recovery measures on one real rolling win-rate segment}
+  \label{fig:metrics}
+\end{figure}
+
+
 
 \subsection{Tools}
-\begin{itemize}
-  \item \textbf{Setup:} GPU and CPU training on the UCT cluster and CPU training
-        on the CHPC cluster; metrics logged to Weights \& Biases and to per-game
-        CSV files; per-seed runs kept separate then merged; state the number of
-        seeds.
-\end{itemize}
+%% \textbf{Setup:} GPU and CPU training on the UCT cluster and CPU training on the CHPC cluster; metrics logged to Weights \& Biases and to per-game CSV files; per-seed runs kept separate then merged; state the number of seeds.
+Both agents were implemented in PyTorch~\cite{paszke2019pytorch} and shared a
+single training pipeline. Training was carried out on two high-performance
+computing clusters. The University of Cape Town cluster provided GPU and CPU nodes, as well as the CHPC cluster, which provided additional CPU capacity.
+
+Each run produced two records. The first was a live stream of metrics to Weights
+and Biases. The second was a per-game log recording the outcome of every game.
+These per-game logs served as the source for all recovery measures, which were
+computed offline after training. Every seed was run and stored separately, then
+the seeds were merged at analysis time to produce a mean and a standard error.
+Three seeds were used for each Phase-2 condition. The full implementation is
+available online.\footnote{\url{https://github.com/bradrscott/honours_rl_project}}
 
 \section{Results}
 % Factual presentation only — no interpretation (that goes in Discussion).
-\begin{itemize}
-  \item Open with: brief outline of the results - Phase-1 capability baselines,
-        then Phase-2 recovery, presented as tables and figures.
-\end{itemize}
+This section presents the results of the experiments set out in Section~3,
+covering both Phase-1 capability and Phase-2 recovery.
 
 \subsection{Phase-1 Capability}
-\begin{itemize}
-  \item \textbf{Phase-1 capability} - Table: win rate per agent $\times$
-        opponent $\times$ board, with the GNU~Go reference [values TBD].
-\end{itemize}
+Table~\ref{tab:phase1} reports the Phase-1 win rate of each agent against each
+opponent, on both board sizes. PPO reaches a higher win rate than FuN in nine of
+the ten conditions, mostly above 90\% and reaching 100\% against three of the
+five opponents on the $9\times9$ board. FuN's win rates are lower and more
+varied, ranging from 54\% to 88\%. The one exception is the edge opponent on the
+$13\times13$ board, where FuN's win rate (87\%) exceeds PPO's (68\%). As an
+external reference, GNU Go wins over 98\% of games against every opponent on
+both boards (Table~\ref{tab:gnugo} in the Appendix); PPO's win rates sit close to
+this reference in most conditions, while FuN's remain further below it. The
+training curves behind these final values are shown in
+Figures~\ref{fig:phase1-curves-9} and~\ref{fig:phase1-curves-13}, for the
+$9\times9$ and $13\times13$ boards respectively: PPO rises quickly and then holds
+close to its ceiling, whereas FuN climbs more slowly and stays noticeably noisier
+throughout training.
 
+\begin{table}[t]
+  \centering
+  \caption{Phase-1 final win rate (\%), by agent, opponent, and board size. Bold
+    marks the higher win rate in each condition.}
+  \label{tab:phase1}
+  \small
+  \begin{tabular}{@{}l cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$9\times9$} & \multicolumn{2}{c}{$13\times13$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Opponent & PPO & FuN & PPO & FuN \\
+    \midrule
+    Greedy & \textbf{99.0} & 75.5 & \textbf{92.5} & 74.0 \\
+    Defensive & \textbf{99.5} & 78.0 & \textbf{89.0} & 64.0 \\
+    Corner & \textbf{100.0} & 88.0 & \textbf{83.5} & 54.0 \\
+    Edge & \textbf{100.0} & 60.0 & 68.5 & \textbf{87.0} \\
+    Random & \textbf{98.0} & 63.5 & \textbf{98.0} & 83.0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Figure~\ref{fig:phase1-eplen} reports a second, independent measure of Phase-1
+behaviour: average game length in environment steps, for the same agent,
+opponent, and board combinations. FuN's games run longer than PPO's in every
+one of the ten conditions, from about 4\% longer (Defensive, $13\times13$) to
+over $3\times$ longer (Corner, both boards).
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase1_eplen_bars.png}
+  \caption{Phase-1 average game length (environment steps) by opponent and
+    board size, PPO versus FuN.}
+  \label{fig:phase1-eplen}
+\end{figure}
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase1_curves_9x9.png}
+  \caption{Phase-1 training curves on the $9\times9$ board: rolling win rate over
+    training steps for PPO and FuN against each opponent.}
+  \label{fig:phase1-curves-9}
+\end{figure}
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase1_curves_13x13.png}
+  \caption{Phase-1 training curves on the $13\times13$ board: rolling win rate
+    over training steps for PPO and FuN against each opponent.}
+  \label{fig:phase1-curves-13}
+\end{figure}
+
+\clearpage
 \subsection{Phase-2 Recovery}
-\begin{itemize}
-  \item \textbf{Phase-2 recovery} - Table: recovery time, dip depth and
-        adaptation cost per agent $\times$ magnitude $\times$ board, as mean
-        over seeds [values TBD].
-  \item \textbf{Figures:}
-        \begin{itemize}
-          \item rolling win-rate curves with shift points marked, PPO and FuN
-                overlaid per condition;
-          \item grouped bar chart of recovery time by magnitude, per board;
-          \item dip-depth / adaptation-cost comparison across conditions.
-        \end{itemize}
-\end{itemize}
+Table~\ref{tab:phase2} reports Phase-2 recovery time, dip depth, and
+adaptation cost for each agent, broken down by board size and shift magnitude,
+as means over three seeds and the three shift frequencies (recovery time is
+also shown $\pm$ standard error).
+
+\begin{table*}[t]
+  \centering
+  \caption{Phase-2 recovery time (games), dip depth (drop in win rate), and
+    adaptation cost (thousand environment steps) for PPO and FuN, by board size
+    and shift magnitude. Values are means over three seeds and the three shift
+    frequencies; recovery time is also shown $\pm$ standard error.}
+  \label{tab:phase2}
+  \small
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabular}{@{}ll ccc ccc@{}}
+    \toprule
+    & & \multicolumn{3}{c}{PPO} & \multicolumn{3}{c}{FuN} \\
+    \cmidrule(lr){3-5}\cmidrule(lr){6-8}
+    Board & Mag. & Recovery & Dip & Adapt.\ cost & Recovery & Dip & Adapt.\ cost \\
+    & & (games) & (win rate) & (k steps) & (games) & (win rate) & (k steps) \\
+    \midrule
+    $9\times9$ & Low & 6\,$\pm$\,4 & 0.07 & 2.8 & 92\,$\pm$\,37 & 0.23 & 18.9 \\
+     & Med & 22\,$\pm$\,12 & 0.13 & 10.7 & 316\,$\pm$\,146 & 0.30 & 42.5 \\
+     & High & 18\,$\pm$\,7 & 0.14 & 7.0 & 693\,$\pm$\,214 & 0.30 & 100.5 \\
+    \midrule
+    $13\times13$ & Low & 0\,$\pm$\,0 & 0.10 & 18.5 & 21\,$\pm$\,7 & 0.16 & 36.8 \\
+     & Med & 2\,$\pm$\,1 & 0.11 & 17.3 & 90\,$\pm$\,51 & 0.24 & 76.3 \\
+     & High & 48\,$\pm$\,25 & 0.17 & 19.4 & 104\,$\pm$\,59 & 0.27 & 120.2 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{figure*}[t]\centering
+  \includegraphics[width=\textwidth]{figs/fig_phase2_curves_9x9.png}
+  \caption{Rolling win-rate curves for PPO and FuN on the $9\times9$ board,
+    across all nine shift conditions (rows: shift magnitude; columns: shift
+    frequency f1--f3). Shaded regions mark intervals against the post-shift
+    opponent B.}
+  \label{fig:phase2-curves-9x9}
+\end{figure*}
+
+\begin{figure*}[t]\centering
+  \includegraphics[width=\textwidth]{figs/fig_phase2_curves_13x13.png}
+  \caption{Rolling win-rate curves for PPO and FuN on the $13\times13$ board,
+    across all nine shift conditions (rows: shift magnitude; columns: shift
+    frequency f1--f3). Shaded regions mark intervals against the post-shift
+    opponent B.}
+  \label{fig:phase2-curves-13x13}
+\end{figure*}
+
+\paragraph{Recovery time.} PPO recovers faster than FuN in every
+board--magnitude combination: 6--22 games versus 92--693 games on $9\times9$,
+and 0--48 games versus 21--104 games on $13\times13$ (Table~\ref{tab:phase2}).
+Figure~\ref{fig:phase2-recovery} presents these recovery-time results as
+grouped bar charts, one panel per board.
+
+\paragraph{Dip depth and adaptation cost.} FuN's win rate also drops further
+during a shift (dip depth 0.16--0.30, against PPO's 0.07--0.17) and costs more
+to recover from (18.9--120.2k steps, against PPO's 2.8--19.4k steps) across
+every condition (Table~\ref{tab:phase2}). Figure~\ref{fig:phase2-dipadapt}
+presents the corresponding dip-depth (top row) and adaptation-cost (bottom row)
+results in the same layout.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase2_recovery_bars.png}
+  \caption{Mean recovery time (games) by shift magnitude, for PPO and FuN on the
+    $9\times9$ (left) and $13\times13$ (right) boards; note the differing
+    $y$-axis scales between panels.}
+  \label{fig:phase2-recovery}
+\end{figure}
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase2_dip_adapt.png}
+  \caption{Dip depth (top row) and adaptation cost (bottom row) by shift
+    magnitude, for PPO and FuN on the $9\times9$ (left column) and $13\times13$
+    (right column) boards.}
+  \label{fig:phase2-dipadapt}
+\end{figure}
+
+\paragraph{Rolling win-rate curves.} Figures~\ref{fig:phase2-curves-9x9}
+and~\ref{fig:phase2-curves-13x13} show the rolling win-rate curves for both
+agents across all nine shift conditions, on the $9\times9$ and $13\times13$
+boards (shaded regions mark the post-shift opponent B). PPO stays close to its
+pre-shift level throughout; FuN falls further and stays lower for longer,
+most visibly at high magnitude with three shifts per run (bottom row, column
+f3).
+
+\paragraph{Disruption rate.} FuN is disrupted far more often than PPO in every
+board--magnitude combination: 52--75\% of shifts, against PPO's 0--27\%.
+Figure~\ref{fig:phase2-disruption} presents these disruption rates as a
+heatmap, one row per board and magnitude.
+
+\begin{figure}[H]\centering
+  \includegraphics[width=\linewidth]{figs/fig_phase2_disruption_heatmap.png}
+  \caption{Fraction of shifts that disrupted each agent (rolling win rate fell
+    below $0.8\times$ the pre-shift baseline), by board and shift magnitude,
+    PPO versus FuN.}
+  \label{fig:phase2-disruption}
+\end{figure}
 
 \section{Discussion}
 \begin{itemize}
@@ -227,10 +820,10 @@ opponent shifts strategy.
   \item \textbf{Implications:} what the negative result means for using HRL
         under opponent-induced non-stationarity, and when a hierarchy might
         still help.
-  \item \textbf{Limitations:} all seeds start from the same Phase-1 model, so
-        they capture only Phase-2 randomness; win rate used rather than a
-        territory/score margin; boards limited to $9\times9$ and $13\times13$,
-        not full-size $19\times19$ Go.
+  \item \textbf{Limitations:} all seeds start
+        from the same Phase-1 model, so they capture only Phase-2 randomness; win rate used rather than a territory/score
+        margin; boards limited to $9\times9$ and $13\times13$, not full-size
+        $19\times19$ Go.
 \end{itemize}
 
 \section{Conclusions}
@@ -241,7 +834,141 @@ opponent shifts strategy.
   \item Future work: more seeds; $19\times19$ board; a territory-margin metric.
 \end{itemize}
 
+%% References added later (bibliography omitted from the scaffold).
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
+
+\appendix
+
+\onecolumn
+
+\section{Plots and Graphs}
+\begin{center}
+\centering
+  \includegraphics[width=0.6\textwidth]{figs/fig_obs_encoding.png}
+  \captionof{figure}{The \texttt{go\_v5} observation: eight times opponent and own stone planes plus a colour-to-play plane, seventeen in
+    total.}
+  \label{fig:obs-encoding}
+\end{center}
+
+\begin{center}
+\centering
+  \includegraphics[width=0.8\textwidth]{figs/fig_phase1_phase2_flow.png}
+  \captionof{figure}{The two-phase pipeline}
+  \label{fig:pipeline}
+\end{center}
+
+\begin{center}
+\centering
+  \includegraphics[width=0.8\textwidth]{figs/fig_shift_schedule.png}
+  \captionof{figure}{Phase-2 shift schedules for the three frequencies
+    ($9\times9$, budget 2.3M steps)}
+  \label{fig:shift-schedule}
+\end{center}
+
+\clearpage
+\section{Tables}
+\label{app:tools}
+
+\begin{center}
+\centering
+  \small
+  \begin{tabular}{@{}llll@{}}
+    \toprule
+    Magnitude & Pre-shift $\rightarrow$ Post-shift & Strategic change & Disruption \\
+    \midrule
+    LOW  & corner $\rightarrow$ edge      & positional $\rightarrow$ positional (corner vs.\ edge lean) & small \\
+    MED  & corner $\rightarrow$ defensive & positional $\rightarrow$ group-defence & moderate \\
+    HIGH & greedy $\rightarrow$ defensive & territory-grabbing $\rightarrow$ group-defence & large \\
+    \bottomrule
+  \end{tabular}
+  \captionof{table}{Shift magnitude definitions}
+  \label{tab:magnitudes}
+\end{center}
+
+\begin{center}
+\centering
+  \small
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Component & PPO & FuN \\
+    \midrule
+    CNN backbone / perception          & 0.36\,M   & 0.69\,M \\
+    Policy / actor head                & 0.011\,M  & --- \\
+    Value / critic head                & $<$0.001\,M & --- \\
+    Manager (dilated LSTM + value)     & ---       & 0.59\,M \\
+    Worker (LSTM + value + goal proj.) & ---       & 8.31\,M \\
+    \midrule
+    \textbf{Total} ($9{\times}9$)      & \textbf{0.37\,M} & \textbf{9.59\,M} \\
+    \textbf{Total} ($13{\times}13$)    & \textbf{0.74\,M} & \textbf{34.5\,M} \\
+    \bottomrule
+  \end{tabular}
+  \captionof{table}{Parameter counts by component}
+  \label{tab:paramcount}
+\end{center}
+
+\begin{center}
+\centering
+  \small
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Opponent   & GNU Go win rate ($9{\times}9$) & GNU Go win rate ($13{\times}13$) \\
+    \midrule
+    Greedy     & 100\% & 100\% \\
+    Defensive  & 100\% & 100\% \\
+    Corner     & 100\% & 99\%  \\
+    Edge       & 100\% & 100\% \\
+    Random     & 100\% & 100\% \\
+    \bottomrule
+  \end{tabular}
+  \captionof{table}{GNU Go win rate against each opponent (level 10, 100 games
+    each).}
+  \label{tab:gnugo}
+\end{center}
+
+\begin{center}
+\centering
+  \begin{tabular}{@{}llp{0.52\textwidth}@{}}
+    \toprule
+    Opponent & Focus & Key behaviour \\
+    \midrule
+    Greedy    & Territory              & Plays the largest open point each move. \\
+    Defensive & Group safety           & Defends and connects its own groups and values liberties. \\
+    Corner    & Contact + corner lean  & Plausible contact play with positional bias toward the corner. \\
+    Edge      & Contact + edge lean    & The same contact play with a positional bias toward the nearest edge. \\
+    Random    & None (baseline)        & Selects a uniformly random legal move each turn. \\
+    \bottomrule
+  \end{tabular}
+  \captionof{table}{The five fixed opponents key focus and behaviour.}
+  \label{tab:opponents}
+\end{center}
+
+\begin{center}
+\centering
+  \small
+  \begin{tabular}{@{}lp{0.3\textwidth}@{}}
+    \toprule
+    Component & Detail \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Compute}}\\
+    UCT HPC       & CPU (SLURM, \texttt{ada} partition); L40S GPU for some runs \\
+    CHPC Lengau   & CPU (PBS Pro) \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Software}}\\
+    Python                       & 3.10 \\
+    PyTorch                      & 2.11 \\
+    PettingZoo (\texttt{go\_v5}) & 1.25 \\
+    Gymnasium                    & 1.2 \\
+    NumPy                        & 2.2 \\
+    GNU~Go (skill reference)     & 3.8 \\
+    \midrule
+    \multicolumn{2}{@{}l}{\emph{Logging}}\\
+    Training metrics    & Weights \& Biases \\
+    Per-game records    & CSV (\texttt{games.csv}) \\
+    \bottomrule
+  \end{tabular}
+  \captionof{table}{Compute and software stack.}
+  \label{tab:tools}
+\end{center}
 
 \end{document}

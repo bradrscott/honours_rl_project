@@ -1,0 +1,22 @@
+% ── GNU Go reference (Section 3.3.1) ── requires \usepackage{booktabs}
+% GNU Go (level 10, 100 games each) win rate against every heuristic opponent.
+% Near-total dominance confirms the opponents are weak relative to a real Go
+% engine — the anchor that a trained agent "mastering" a bot is not mastering Go.
+\begin{table}[t]
+  \centering
+  % Add your own \caption{...} here.
+  \label{tab:gnugo}
+  \small
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Opponent   & GNU Go win rate ($9{\times}9$) & GNU Go win rate ($13{\times}13$) \\
+    \midrule
+    Greedy     & 100\% & 100\% \\
+    Defensive  & 100\% & 100\% \\
+    Corner     & 100\% & 99\%  \\
+    Edge       & 100\% & 100\% \\
+    Random     & 100\% & 100\% \\
+    Aggressive & 100\% & 93\%  \\
+    \bottomrule
+  \end{tabular}
+\end{table}
