@@ -1,0 +1,19 @@
+% ── Opponent summary table (Section 3.1) ──────────────────────────────
+% Requires \usepackage{booktabs}. In a two-column layout table* spans both
+% columns; switch to table if you prefer it inside one column.
+\begin{table*}[t]
+  \centering
+  % Add your own \caption{...} here (and keep \label if you want to reference it).
+  \label{tab:opponents}
+  \begin{tabular}{@{}llp{0.52\textwidth}@{}}
+    \toprule
+    Opponent & Focus & Key behaviour \\
+    \midrule
+    Greedy    & Territory              & Plays the largest open point each move (influence / territory) and takes a free capture if one is offered, but never hunts --- acquisitive yet thin. \\
+    Defensive & Group safety           & Defends and connects its own groups and values liberties while avoiding contact --- a solid but passive ``builder''. \\
+    Corner    & Contact + corner lean  & Sound-ish capture / defend / attack / connect play with a soft positional bias toward the top-left corner. \\
+    Edge      & Contact + edge lean    & The same contact play with a soft positional bias toward the nearest edge (perimeter). \\
+    Random    & None (baseline)        & Selects a uniformly random legal move each turn (pass included); a zero-strategy control. \\
+    \bottomrule
+  \end{tabular}
+\end{table*}

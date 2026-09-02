@@ -1,0 +1,21 @@
+% ── Phase-1 capability: win rate (%) per agent x opponent x board ──
+% requires \usepackage{booktabs}.
+\begin{table}[t]
+  \centering
+  % Add your own \caption{...} here.
+  \label{tab:phase1}
+  \small
+  \begin{tabular}{@{}l cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$9\times9$} & \multicolumn{2}{c}{$13\times13$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Opponent & PPO & FuN & PPO & FuN \\
+    \midrule
+    Greedy & \textbf{99.0} & 75.5 & \textbf{92.5} & 74.0 \\
+    Defensive & \textbf{99.5} & 78.0 & \textbf{89.0} & 64.0 \\
+    Corner & \textbf{100.0} & 88.0 & \textbf{83.5} & 54.0 \\
+    Edge & \textbf{100.0} & 60.0 & 68.5 & \textbf{87.0} \\
+    Random & \textbf{98.0} & 63.5 & \textbf{98.0} & 83.0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

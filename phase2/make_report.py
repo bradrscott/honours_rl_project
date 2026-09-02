@@ -171,6 +171,61 @@ def summary_table(rows):
     return f"<table>{head}{''.join(body)}</table>"
 
 
+# ---- Policy reuse: novel-to-B vs return-to-A ------------------------------
+def load_reuse():
+    p = os.path.join(RESULTS, "policy_reuse.csv")
+    if not os.path.exists(p):
+        return []
+    rows = list(csv.DictReader(open(p)))
+    for r in rows:
+        for k in ("mean_dip", "mean_recovery", "mean_cost_ksteps"):
+            r[k] = float(r[k])
+        for k in ("n_shifts", "n_disrupted"):
+            r[k] = int(r[k])
+    return rows
+
+
+def fig_reuse(reuse):
+    NB, RA = "#94a3b8", "#334155"                 # novel-B (light) / return-A (dark)
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6), sharey=True)
+
+    def dip(board, agent, tgt):
+        for r in reuse:
+            if r["board"] == board and r["agent"] == agent and r["shift_type"] == tgt:
+                return r["mean_dip"]
+        return 0
+
+    for ax, board in zip(axes, ["9x9", "13x13"]):
+        agents = ["ppo", "feudal"]; x = range(len(agents)); w = 0.36
+        ax.bar([i - w/2 for i in x], [dip(board, a, "novel-B") for a in agents], w,
+               label="novel → B", color=NB)
+        ax.bar([i + w/2 for i in x], [dip(board, a, "return-A") for a in agents], w,
+               label="return → A", color=RA)
+        ax.set_xticks(list(x)); ax.set_xticklabels(["PPO", "FuN"])
+        ax.set_title(board); ax.spines[["top", "right"]].set_visible(False)
+    axes[0].set_ylabel("dip depth (drop below baseline)")
+    axes[0].legend()
+    fig.suptitle("Policy reuse — dip on return to the trained opponent A vs a novel B\n"
+                 "(a big return-A dip = the agent forgot A while adapting to B)", y=1.06)
+    return fig_to_b64(fig)
+
+
+def reuse_table(reuse):
+    rows = sorted(reuse, key=lambda r: (r["board"], r["agent"], r["shift_type"]))
+    head = ("<tr><th>Board</th><th>Agent</th><th>Shift</th><th>Disrupted</th>"
+            "<th>Dip</th><th>Recovery (games)</th><th>Cost (k)</th></tr>")
+    body = []
+    for r in rows:
+        agent = "FuN" if r["agent"] == "feudal" else "PPO"
+        cls = ' class="fun"' if r["agent"] == "feudal" else ""
+        body.append(
+            f"<tr{cls}><td>{r['board']}</td><td>{agent}</td><td>{r['shift_type']}</td>"
+            f"<td>{r['n_disrupted']}/{r['n_shifts']}</td>"
+            f"<td>{r['mean_dip']:.3f}</td><td>{r['mean_recovery']:.0f}</td>"
+            f"<td>{r['mean_cost_ksteps']:.1f}</td></tr>")
+    return f"<table>{head}{''.join(body)}</table>"
+
+
 def main():
     rows = load_summary()
     f1 = fig_disruption(rows)
@@ -178,6 +233,22 @@ def main():
     f3 = fig_cost(rows)
     ov9  = fig_overlay("9x9",  "greedy-phase2-high-f1")
     ov13 = fig_overlay("13x13", "greedy-phase2-high-f1")
+    reuse = load_reuse()
+    reuse_html = ""
+    if reuse:
+        f_reuse = fig_reuse(reuse)
+        reuse_html = f"""
+<h2>6. Policy reuse — does the hierarchy retain its old skills?</h2>
+<img src="data:image/png;base64,{f_reuse}">
+<p class="cap">Every schedule ends by returning to A (the trained opponent). A large
+dip on that return means the agent overwrote its A-policy while adapting to B.</p>
+{reuse_table(reuse)}
+<p>Both agents forget somewhat — even PPO dips when A returns, despite barely reacting
+to a <i>novel</i> B. But <b>FuN forgets far more</b>: on 9×9, returning to A costs it a
+0.34 dip and hundreds of games, versus PPO's ~0.15 and ~20 games. The hierarchy's
+expected skill-<i>retention</i> advantage does not appear — a second, independent line
+of evidence for the negative result.</p>
+"""
 
     # aggregate disruption for the headline
     def drate(b, a):
@@ -221,7 +292,8 @@ than the FeUdal Network. PPO's win rate fell below the 80%-of-baseline bar in on
  <li><b>Phase 2:</b> resume a Phase-1 checkpoint, then apply abrupt mid-training opponent shifts —
    3 magnitudes (LOW corner→edge, MED corner→defensive, HIGH greedy→defensive) × 3 frequencies
    (f1 single, f2 periodic, f3 frequent). All shifts are between opponents both agents can master,
-   so recovery is not confounded with raw capability. Single seed (stated limitation).</li>
+   so recovery is not confounded with raw capability. <b>Three seeds</b> per condition
+   (108 Phase-2 runs); results below are mean over seeds.</li>
  <li><b>Metrics</b> (all vs each agent's <i>own</i> pre-shift baseline, rolling window = 100 games):
    <b>disruption rate</b> (did win rate fall below 0.8×baseline);
    <b>recovery time</b> (games spent below the bar until it returns);
@@ -249,11 +321,12 @@ than the FeUdal Network. PPO's win rate fell below the 80%-of-baseline bar in on
 <h2>5. Full results — all 36 conditions</h2>
 {summary_table(rows)}
 <p class="cap">Recovery = mean games below the bar over disrupted shifts (— = never disrupted).</p>
-
+{reuse_html}
 <h2>Limitations (stated up front)</h2>
 <ul>
- <li><b>Single seed</b> per condition — no error bars; the FuN–PPO gaps are large and unanimous
-   across 36 conditions, but multiple seeds would be the next step to firm this up.</li>
+ <li><b>Three seeds</b> per condition — the FuN–PPO gaps are large and unanimous across all
+   36 conditions and hold across seeds; some single-frequency cells still carry wide spread
+   (few shifts), so per-cell numbers should be read as indicative.</li>
  <li><b>13×13 recovery <i>duration</i> is short</b> (a 13×13 game ≈ 3× the training of a 9×9 game),
    so on the larger board the disruption <i>rate</i>, <i>dip depth</i> and <i>adaptation cost</i>
    carry the signal; all three still show FuN clearly worse.</li>

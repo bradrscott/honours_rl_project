@@ -316,6 +316,12 @@ def main():
         se = statistics.stdev(vals) / len(vals) ** 0.5 if len(vals) > 1 else 0.0
         return round(mu, 2), round(se, 2)
 
+    # per-condition raw shifts (pooled over seeds) — for the legacy columns
+    # make_report.py expects (n_recovered, mean_recovery_disrupted, ...).
+    shifts_by_cond = defaultdict(list)
+    for t in table:
+        shifts_by_cond[(t["board"], t["agent"], t["magnitude"], t["frequency"])].append(t)
+
     conds = sorted({k[:4] for k in seed_stats},
                    key=lambda c: (c[0], c[1], _mag(c[2]), c[3]))
     summary_rows = []
@@ -324,6 +330,12 @@ def main():
         rec_mu, rec_se   = mean_se([s["rec"] for s in S])
         dip_mu, dip_se   = mean_se([s["dip"] for s in S])
         cost_mu, cost_se = mean_se([s["cost"] for s in S])
+
+        sh   = shifts_by_cond[(board, agent, mag, freq)]
+        disr = [t for t in sh if t["disrupted"]]
+        n_rec = sum(1 for t in disr if t["recovered"])
+        mean_rec_disr = round(sum(t["recovery_games"] for t in disr) / len(disr), 1) if disr else ""
+
         summary_rows.append({
             "board": board, "agent": agent, "magnitude": mag, "frequency": freq,
             "n_seeds": len(S), "n_shifts": sum(s["n"] for s in S),
@@ -332,6 +344,11 @@ def main():
             "dip_mean": dip_mu, "dip_se": dip_se,
             "worst_dip": round(max(s["wdip"] for s in S), 3),
             "adapt_cost_mean": cost_mu, "adapt_cost_se": cost_se,
+            # ---- legacy columns for make_report.py ----
+            "n_recovered": n_rec, "n_censored": len(disr) - n_rec,
+            "mean_recovery_disrupted": mean_rec_disr,
+            "mean_dip": dip_mu,
+            "mean_adapt_cost_ksteps": cost_mu,
         })
 
     out_summary = os.path.join(OUT_DIR, "summary_by_condition.csv")

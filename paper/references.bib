@@ -3,28 +3,71 @@
 
 @inproceedings{vezhnevets2017feudal,
   title     = {FeUdal Networks for Hierarchical Reinforcement Learning},
-  author    = {Vezhnevets, Alexander Sasha and Osindero, Simon and Schaul, Tom
-               and Heess, Nicolas and Jaderberg, Max and Silver, David and
-               Kavukcuoglu, Koray},
+  author    = {Vezhnevets, Alexander Sasha and others},
   booktitle = {Proceedings of the 34th International Conference on Machine
                Learning (ICML)},
   pages     = {3540--3549},
   year      = {2017}
 }
 
-@article{schulman2017proximal,
-  title   = {Proximal Policy Optimization Algorithms},
-  author  = {Schulman, John and Wolski, Filip and Dhariwal, Prafulla and
-             Radford, Alec and Klimov, Oleg},
-  journal = {arXiv preprint arXiv:1707.06347},
-  year    = {2017}
+@inproceedings{huang2022masking,
+  title     = {A Closer Look at Invalid Action Masking in Policy Gradient
+               Algorithms},
+  author    = {Huang, Shengyi and Onta{\~n}{\'o}n, Santiago},
+  booktitle = {Proceedings of the International Florida Artificial Intelligence
+               Research Society Conference (FLAIRS)},
+  volume    = {35},
+  year      = {2022},
+  doi       = {10.32473/flairs.v35i.130584}
+}
+
+@inproceedings{schulman2015trust,
+  title     = {Trust Region Policy Optimization},
+  author    = {Schulman, John and others},
+  booktitle = {Proceedings of the 32nd International Conference on Machine
+               Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {37},
+  pages     = {1889--1897},
+  year      = {2015}
+}
+
+@inproceedings{he2016opponent,
+  title     = {Opponent Modeling in Deep Reinforcement Learning},
+  author    = {He, He and others},
+  booktitle = {Proceedings of the 33rd International Conference on Machine
+               Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {48},
+  pages     = {1804--1813},
+  year      = {2016}
+}
+
+@article{padakandla2022survey,
+  title     = {A Survey of Reinforcement Learning Algorithms for Dynamically
+               Varying Environments},
+  author    = {Padakandla, Sindhu},
+  journal   = {ACM Computing Surveys},
+  volume    = {54},
+  number    = {6},
+  articleno = {127},
+  numpages  = {25},
+  year      = {2022},
+  doi       = {10.1145/3459991}
+}
+
+@inproceedings{paszke2019pytorch,
+  title     = {PyTorch: An Imperative Style, High-Performance Deep Learning
+               Library},
+  author    = {Paszke, Adam and others},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {32},
+  year      = {2019}
 }
 
 @inproceedings{terry2021pettingzoo,
   title     = {PettingZoo: Gym for Multi-Agent Reinforcement Learning},
-  author    = {Terry, J. and Black, Benjamin and Grammel, Nathaniel and
-               Jayakumar, Mario and Hari, Ananth and Sullivan, Ryan and
-               Santos, Luis S. and Dieffendahl, Clemens and others},
+  author    = {Terry, J. and others},
   booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
   volume    = {34},
   year      = {2021}
@@ -32,12 +75,34 @@
 
 @article{silver2016mastering,
   title   = {Mastering the Game of Go with Deep Neural Networks and Tree Search},
-  author  = {Silver, David and Huang, Aja and Maddison, Chris J. and others},
+  author  = {Silver, David and others},
   journal = {Nature},
   volume  = {529},
   number  = {7587},
   pages   = {484--489},
   year    = {2016}
+}
+
+@article{silver2017mastering,
+  title   = {Mastering the Game of Go without Human Knowledge},
+  author  = {Silver, David and others},
+  journal = {Nature},
+  volume  = {550},
+  number  = {7676},
+  pages   = {354--359},
+  year    = {2017},
+  doi     = {10.1038/nature24270}
+}
+
+@article{campbell2002deepblue,
+  title   = {Deep Blue},
+  author  = {Campbell, Murray and others},
+  journal = {Artificial Intelligence},
+  volume  = {134},
+  number  = {1--2},
+  pages   = {57--83},
+  year    = {2002},
+  doi     = {10.1016/S0004-3702(01)00129-1}
 }
 
 @book{sutton2018reinforcement,
@@ -59,27 +124,95 @@
 
 @incollection{busoniu2008overview,
   title     = {Multi-Agent Reinforcement Learning: An Overview},
-  author    = {Bu{\c{s}}oniu, Lucian and Babu{\v{s}}ka, Robert and
-               De Schutter, Bart},
+  author    = {Bu{\c{s}}oniu, Lucian and others},
   year      = {2008},
   doi       = {10.1007/978-3-540-77922-9_1}
-}
-
-@article{hernandezleal2017survey,
-  title   = {A Survey of Learning in Multiagent Environments: Dealing with
-             Non-Stationarity},
-  author  = {Hernandez-Leal, Pablo and Kaisers, Michael and Baarslag, Tim and
-             Munoz de Cote, Enrique},
-  journal = {arXiv preprint arXiv:1707.09183},
-  year    = {2017}
 }
 
 @inproceedings{lowe2017multi,
   title     = {Multi-Agent Actor-Critic for Mixed Cooperative-Competitive
                Environments},
-  author    = {Lowe, Ryan and Wu, Yi and Tamar, Aviv and Harb, Jean and
-               Abbeel, Pieter and Mordatch, Igor},
+  author    = {Lowe, Ryan and others},
   booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
   volume    = {30},
   year      = {2017}
+}
+
+@misc{gnugo,
+  title        = {{GNU Go}},
+  author       = {{Free Software Foundation}},
+  year         = {2009},
+  note         = {Version 3.8},
+  howpublished = {\url{https://www.gnu.org/software/gnugo/}}
+}
+
+@inproceedings{dayan1993feudal,
+  title     = {Feudal Reinforcement Learning},
+  author    = {Dayan, Peter and Hinton, Geoffrey E.},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {1993}
+}
+
+@article{pateria2021survey,
+  title     = {Hierarchical Reinforcement Learning: A Comprehensive Survey},
+  author    = {Pateria, Shubham and others},
+  journal   = {ACM Computing Surveys},
+  volume    = {54},
+  number    = {5},
+  articleno = {109},
+  numpages  = {35},
+  year      = {2021},
+  doi       = {10.1145/3453160}
+}
+
+@article{sutton1999between,
+  title   = {Between {MDPs} and Semi-{MDPs}: A Framework for Temporal
+             Abstraction in Reinforcement Learning},
+  author  = {Sutton, Richard S. and others},
+  journal = {Artificial Intelligence},
+  volume  = {112},
+  number  = {1--2},
+  pages   = {181--211},
+  year    = {1999},
+  doi     = {10.1016/S0004-3702(99)00052-1}
+}
+
+@article{hochreiter1997lstm,
+  title   = {Long Short-Term Memory},
+  author  = {Hochreiter, Sepp and Schmidhuber, J{\"u}rgen},
+  journal = {Neural Computation},
+  volume  = {9},
+  number  = {8},
+  pages   = {1735--1780},
+  year    = {1997},
+  doi     = {10.1162/neco.1997.9.8.1735}
+}
+
+@inproceedings{kulkarni2016hierarchical,
+  title     = {Hierarchical Deep Reinforcement Learning: Integrating Temporal
+               Abstraction and Intrinsic Motivation},
+  author    = {Kulkarni, Tejas D. and others},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {29},
+  year      = {2016}
+}
+
+@inproceedings{alshedivat2018continuous,
+  title     = {Continuous Adaptation via Meta-Learning in Nonstationary and
+               Competitive Environments},
+  author    = {Al-Shedivat, Maruan and others},
+  booktitle = {Proceedings of the 6th International Conference on Learning
+               Representations (ICLR)},
+  year      = {2018}
+}
+
+@article{kirkpatrick2017overcoming,
+  title   = {Overcoming Catastrophic Forgetting in Neural Networks},
+  author  = {Kirkpatrick, James and others},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {114},
+  number  = {13},
+  pages   = {3521--3526},
+  year    = {2017},
+  doi     = {10.1073/pnas.1611835114}
 }
