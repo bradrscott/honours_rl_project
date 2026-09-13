@@ -18,7 +18,7 @@
 #
 #   # pick the checkpoint explicitly:
 #   python demo_live_game.py --agent ppo \
-#       --checkpoint models/ppo_go/9x9/greedy/ppo_go_final.pt --opponent greedy
+#       --checkpoint phase1_checkpoints/ppo_go/9x9/greedy/ppo_go_final.pt --opponent greedy
 # ══════════════════════════════════════════════════════════════
 
 import argparse, os, sys, time
@@ -145,7 +145,7 @@ def hold_result(title, subtitle, hold_seconds=0):
 def default_ckpt(agent, trained_vs, n):
     root = "ppo_go" if agent == "ppo" else "feudal"
     fname = "ppo_go_final.pt" if agent == "ppo" else "feudal_go_final.pt"
-    return f"models/{root}/{n}x{n}/{trained_vs}/{fname}"
+    return f"phase1_checkpoints/{root}/{n}x{n}/{trained_vs}/{fname}"
 
 
 def main():

@@ -4,7 +4,7 @@
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=8
 #SBATCH --time=20:00:00
 #SBATCH --job-name="FEU9c"
-#SBATCH --array=0-5
+#SBATCH --array=0-4
 #SBATCH --output=slurm-%x-%a-%j.out
 #SBATCH --mail-user=sctbra008@myuct.ac.za
 #SBATCH --mail-type=ALL
@@ -24,7 +24,7 @@ export BOARD_SIZE=9
 export KOMI=5.5
 export TOTAL_TIMESTEPS=3000000
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$SLURM_ARRAY_TASK_ID]}
 
 echo "UCT-CPU feudal 9x9 task ${SLURM_ARRAY_TASK_ID} -> OPPONENT=${OPPONENT}"

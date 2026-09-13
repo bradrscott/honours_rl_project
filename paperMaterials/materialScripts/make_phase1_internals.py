@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import wandb
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 os.makedirs(OUT, exist_ok=True)
 ENTITY, PROJECT = "bradrscott4-university-of-cape-town", "honours-rl-go"
 
@@ -128,10 +129,6 @@ def fig_for(api, board, agent):
                for o in OPPS]
     fig.legend(handles=handles, ncol=5, fontsize=10.5, frameon=False,
                loc="upper center", bbox_to_anchor=(0.5, 1.005))
-    board_t = board.replace("x", r"$\times$")
-    agent_t = "PPO" if agent == "ppo" else "Feudal (FuN)"
-    fig.suptitle(f"{agent_t} — Phase-1 training internals ({board_t})",
-                 fontsize=13, fontweight="bold", y=1.02)
     fig.tight_layout(rect=(0, 0, 1, 0.985))
     p = os.path.join(OUT, f"fig_phase1_internals_{agent}_{board}.png")
     fig.savefig(p, dpi=170, bbox_inches="tight"); plt.close(fig)

@@ -5,22 +5,22 @@
 # RECOMPUTES recovery per shift straight from the per-game rows (so the
 # results don't depend on the run-time detector), and writes:
 #
-#   phase2_results/recovery_table.csv   one row per (run, shift):
+#   results/phase2/recovery_table.csv   one row per (run, shift):
 #       agent, board, magnitude, frequency, seed, condition, shift_idx,
 #       to_opponent, baseline, threshold80 (=0.8*baseline), min_rolling,
 #       perf_drop (dip), end_rolling, disrupted (1/0), recovered (1/0),
 #       recovery_games (0 if never dipped below the band; duration if it
 #       returned; censored lower bound if it dipped but never returned),
 #       adapt_cost_games, adapt_cost_ksteps, segment_games.
-#   phase2_results/summary_by_condition_by_seed.csv   EACH SEED's own metrics,
+#   results/phase2/summary_by_condition_by_seed.csv   EACH SEED's own metrics,
 #       one row per (board, agent, magnitude, frequency, seed).
-#   phase2_results/summary_by_condition.csv   MERGED across seeds, one row per
+#   results/phase2/summary_by_condition.csv   MERGED across seeds, one row per
 #       (board, agent, magnitude, frequency): n_seeds, n_shifts, n_disrupted,
 #       recovery_mean/recovery_se, dip_mean/dip_se, worst_dip,
 #       adapt_cost_mean/adapt_cost_se. Each metric is collapsed per
 #       (condition, seed) first, then meaned over seeds with SE=stdev/sqrt(n)
 #       (SE=0 with a single seed).
-#   phase2_results/<run>__rolling.png   rolling win rate vs games,
+#   results/phase2/<run>__rolling.png   rolling win rate vs games,
 #       shift points marked (needs matplotlib; skipped if missing)
 #
 # Definitions (must match phase2.py):
@@ -47,7 +47,7 @@
 #
 # Usage (local or HPC — only needs the CSVs):
 #   python3 analyze_phase2.py [root ...]
-# Default roots: ./models/ppo_go ./models/feudal
+# Default roots: ./results/phase2/ppo_go ./results/phase2/feudal
 # ══════════════════════════════════════════════════════════════
 
 import csv
@@ -58,7 +58,7 @@ from collections import defaultdict, deque
 
 WINDOW        = 100   # rolling/recovery window, in completed games (both boards)
 RECOVERY_FRAC = 0.8
-OUT_DIR       = "phase2_results"
+OUT_DIR       = "results/phase2"
 
 # ── Magnitude relabel ─────────────────────────────────────────
 # The Phase-2 runs were RE-RUN clean with corrected tags, so the folder names
@@ -89,7 +89,7 @@ def parse_condition(cond):
 
 def find_runs(roots):
     """Yield (agent, board, condition, csv_path) for every Phase-2 games.csv.
-    Walks the tree so board-nested layouts (models/<agent>/<board>/<run>/) work."""
+    Walks the tree so board-nested layouts (<root>/<agent>/<board>/<run>/) work."""
     for root in roots:
         agent = "ppo" if "ppo" in os.path.basename(root.rstrip("/")) else "feudal"
         if not os.path.isdir(root):
@@ -239,7 +239,7 @@ def plot_run(rows, title, out_png, W):
 
 
 def main():
-    roots = sys.argv[1:] or ["./models/ppo_go", "./models/feudal"]
+    roots = sys.argv[1:] or ["./results/phase2/ppo_go", "./results/phase2/feudal"]
     os.makedirs(OUT_DIR, exist_ok=True)
 
     table = []
@@ -253,8 +253,10 @@ def main():
             table.append({"agent": agent, "board": board, "magnitude": magnitude,
                           "frequency": frequency, "seed": seed, "label": label,
                           "condition": condition, **r})
+        plot_dir = os.path.join(OUT_DIR, "rolling_plots", agent)
+        os.makedirs(plot_dir, exist_ok=True)
         plotted = plot_run(rows, f"{agent} {board} — {label} s{seed}  ({condition})",
-                           os.path.join(OUT_DIR,
+                           os.path.join(plot_dir,
                                         f"{agent}__{board}__{label}__s{seed}__rolling.png"), WINDOW)
         print(f"  {agent:6s} {board:6s} {label:10s} s{seed} "
               f"shifts={len(res)} games={rows[-1]['game_idx']:>6,} "
@@ -316,8 +318,8 @@ def main():
         se = statistics.stdev(vals) / len(vals) ** 0.5 if len(vals) > 1 else 0.0
         return round(mu, 2), round(se, 2)
 
-    # per-condition raw shifts (pooled over seeds) — for the legacy columns
-    # make_report.py expects (n_recovered, mean_recovery_disrupted, ...).
+    # per-condition raw shifts (pooled over seeds) — for the extra columns
+    # (n_recovered, mean_recovery_disrupted, ...) kept in summary_by_condition.csv.
     shifts_by_cond = defaultdict(list)
     for t in table:
         shifts_by_cond[(t["board"], t["agent"], t["magnitude"], t["frequency"])].append(t)
@@ -344,7 +346,7 @@ def main():
             "dip_mean": dip_mu, "dip_se": dip_se,
             "worst_dip": round(max(s["wdip"] for s in S), 3),
             "adapt_cost_mean": cost_mu, "adapt_cost_se": cost_se,
-            # ---- legacy columns for make_report.py ----
+            # ---- extra per-condition columns ----
             "n_recovered": n_rec, "n_censored": len(disr) - n_rec,
             "mean_recovery_disrupted": mean_rec_disr,
             "mean_dip": dip_mu,
@@ -373,47 +375,6 @@ def main():
               f"{disr:>6s} {rec:>14s} {dip:>12s} {cost:>12s}")
     print("  recovery = mean games below 0.8×baseline (0 = never breached it); "
           "dip = mean drop below baseline; cost = area under the dip.")
-
-    # ---- Policy reuse: novel-to-B vs return-to-A shifts --------------------
-    # Every shift is either TO the novel opponent B or BACK to A (the trained
-    # opponent). Small disruption on return-to-A = the agent retained/reused its
-    # A-policy (low forgetting); a large dip means it overwrote A while adapting
-    # to B. Comparing PPO vs FuN here directly tests the hierarchy's skill-reuse
-    # claim. Aggregated over all seeds/magnitudes/frequencies per (board, agent).
-    reuse = defaultdict(lambda: {"dip": [], "rec": [], "cost": [], "dis": 0, "n": 0})
-    for t in table:
-        tgt = "return-A" if t["returns_to_A"] else "novel-B"
-        d = reuse[(t["board"], t["agent"], tgt)]
-        d["dip"].append(t["perf_drop"])
-        d["rec"].append(float(t["recovery_games"]))
-        d["cost"].append(t["adapt_cost_ksteps"])
-        d["dis"] += t["disrupted"]
-        d["n"]   += 1
-    reuse_rows = []
-    for (board, agent, tgt), d in reuse.items():
-        reuse_rows.append({
-            "board": board, "agent": agent, "shift_type": tgt,
-            "n_shifts": d["n"], "n_disrupted": d["dis"],
-            "mean_dip": round(_avg(d["dip"]), 3),
-            "mean_recovery": round(_avg(d["rec"]), 1),
-            "mean_cost_ksteps": round(_avg(d["cost"]), 2),
-        })
-    reuse_rows.sort(key=lambda r: (r["board"], r["agent"], r["shift_type"]))
-    out_reuse = os.path.join(OUT_DIR, "policy_reuse.csv")
-    with open(out_reuse, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(reuse_rows[0].keys()))
-        w.writeheader(); w.writerows(reuse_rows)
-    print(f"\n✓ wrote {out_reuse}")
-
-    print("\n=== Policy reuse — novel-to-B vs return-to-A (low dip on return-A = "
-          "retained/reused A-policy) ===")
-    print(f"  {'board':6s} {'agent':6s} {'shift':9s} {'disr':>7s} {'dip':>7s} "
-          f"{'recov(g)':>9s} {'cost_ks':>8s}")
-    for r in reuse_rows:
-        print(f"  {r['board']:6s} {r['agent']:6s} {r['shift_type']:9s} "
-              f"{str(r['n_disrupted']) + '/' + str(r['n_shifts']):>7s} "
-              f"{r['mean_dip']:>7.3f} {r['mean_recovery']:>9.1f} "
-              f"{r['mean_cost_ksteps']:>8.2f}")
 
 
 if __name__ == "__main__":

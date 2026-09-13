@@ -18,23 +18,21 @@
     Agents      & PPO, FuN & PPO, FuN \\
     Board sizes & $9{\times}9$,\ \ $13{\times}13$ & $9{\times}9$,\ \ $13{\times}13$ \\
     Opponents
-      & 6 fixed heuristic bots: greedy, aggressive,$^{\dagger}$ defensive, corner, edge, random.
+      & 5 fixed heuristic bots: greedy, defensive, corner, edge, random.
       & Shifts between four of them, by magnitude: LOW corner$\to$edge, MED corner$\to$defensive, HIGH greedy$\to$defensive. \\
     Shift frequency & --- & f1 (single), f2 (periodic), f3 (frequent) \\
     Steps per run   & 3M ($9{\times}9$),\ \ 5M ($13{\times}13$) & 2.3M ($9{\times}9$),\ \ 4.0M ($13{\times}13$) \\
     Seeds           & 1 & 3\ \ (0,\ 1,\ 2) \\
     \addlinespace[3pt]
     Runs
-      & $2 \times 6 \times 2 = 24$
+      & $2 \times 5 \times 2 = 20$
       & $3 \times 3 \times 2 \times 2 \times 3 = 108$ \\
     Recorded
       & rolling win rate (the baseline)
       & recovery time, dip depth, adaptation cost, policy reuse \\
     \midrule
-    \multicolumn{3}{@{}p{15.6cm}}{\textbf{Total: 132 training runs}, plus a GNU~Go reference of
-      100 games vs each opponent (Table~\ref{tab:gnugo}).
-      $^{\dagger}$Aggressive is trained in Phase 1 as a skill reference but excluded from
-      Phase 2 (capability confound), so its shifts are not part of the recovery study.}\\
+    \multicolumn{3}{@{}p{15.6cm}}{\textbf{Total: 128 training runs}, plus a GNU~Go reference of
+      100 games vs each opponent (Table~\ref{tab:gnugo}).}\\
     \bottomrule
   \end{tabular}
 \end{table*}

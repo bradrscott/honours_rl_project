@@ -18,9 +18,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(OUT)
-CSV = os.path.join(ROOT, "models/feudal/9x9/corner-phase2-med-f1/games.csv")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "restOfPaperSection")
+CSV = os.path.join(ROOT, "results/phase2/feudal/9x9/corner-phase2-med-f1/games.csv")
 SHIFT_K = 0          # first shift (-> defensive)
 W = 100              # rolling window (matches the recovery metric)
 
@@ -59,7 +59,7 @@ def main():
     m = (xrel >= lo) & (xrel <= hi)
     X, Y = xrel[m], np.array(rw)[m]
 
-    fig, ax = plt.subplots(figsize=(11, 4.7))
+    fig, ax = plt.subplots(figsize=(15.5, 4.0))
 
     # adaptation cost = area between baseline and the curve (post-shift deficit)
     post = X >= 0
@@ -106,7 +106,7 @@ def main():
     ax.text(hi - 6, baseline + 0.015, "pre-shift baseline", ha="right", va="bottom",
             fontsize=15, color=INK, bbox=lblbox)
     # recovery band: leader points down to the actual dashed line
-    ax.annotate(r"recovery band  ($0.8\times$ baseline)", xy=(420, thr),
+    ax.annotate(r"recovery band  ($0.8\times$ baseline)", xy=(250, thr),
                 xytext=(130, thr + 0.095), ha="left", va="bottom", fontsize=15,
                 color="#4f6b5c", weight="bold", bbox=lblbox,
                 arrowprops=dict(arrowstyle="-", color="#4f6b5c", lw=1.3))
@@ -127,7 +127,7 @@ def main():
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     p = os.path.join(OUT, "fig_metrics_annotated.png")
-    fig.savefig(p, dpi=190, bbox_inches="tight"); plt.close(fig)
+    fig.savefig(p, dpi=190, bbox_inches="tight", pad_inches=0.15); plt.close(fig)
     print("wrote", p,
           f"(baseline={baseline:.2f}, dip={baseline-mn:.2f}, recovery={ret-fb})")
 

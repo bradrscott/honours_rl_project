@@ -24,15 +24,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import wandb
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 os.makedirs(OUT, exist_ok=True)
 ENTITY, PROJECT = "bradrscott4-university-of-cape-town", "honours-rl-go"
 
 OPPS = ["greedy", "defensive", "corner", "edge", "random"]
 NICE = {o: o.capitalize() for o in OPPS}
 BOARDS = ["9x9", "13x13"]
-# New pair, distinct from the win-rate figure's blue/clay and Phase-2's teal/plum.
-PPO_C, FUN_C = "#264653", "#e76f51"   # dark slate teal / burnt coral
+# Grayscale-native pair: charcoal (solid) vs light grey (hatched) so the two
+# series are distinguished by shade AND pattern, readable in grayscale.
+PPO_C, FUN_C = "#3a3a3a", "#c9c9c9"   # charcoal / light grey
 
 
 def canonical_runs():
@@ -104,7 +106,7 @@ def fig_bars(best):
         b1 = ax.bar(x - w / 2, ppo, w, label="PPO", color=PPO_C,
                     edgecolor="white", linewidth=0.8, zorder=3)
         b2 = ax.bar(x + w / 2, fun, w, label="FuN", color=FUN_C,
-                    edgecolor="white", linewidth=0.8, zorder=3)
+                    edgecolor="#3a3a3a", linewidth=0.8, hatch="////", zorder=3)
         top = np.nanmax(ppo + fun)
         for bars, vals in ((b1, ppo), (b2, fun)):
             for bar, v in zip(bars, vals):
@@ -126,7 +128,7 @@ def fig_bars(best):
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, ncol=2, fontsize=17, frameon=False,
                loc="upper center", bbox_to_anchor=(0.5, 1.03),
-               handlelength=1.2, columnspacing=1.8)
+               handlelength=1.5, columnspacing=1.8)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     p = os.path.join(OUT, "fig_phase1_eplen_bars.png")
     fig.savefig(p, dpi=200, bbox_inches="tight"); plt.close(fig)

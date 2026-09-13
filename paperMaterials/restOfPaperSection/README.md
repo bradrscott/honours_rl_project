@@ -20,9 +20,7 @@ Regenerate all four figures:
 /opt/miniconda3/envs/rl_project/bin/python paperMaterials/make_env_opponent_figs.py
 ```
 
-Opponent set shown = the paper's five: greedy, defensive, corner, edge, random
-(aggressive is excluded from Phase 2 for the capability confound; it can be
-added to the figures by editing `OPPS` in the script).
+Opponent set shown = the paper's five: greedy, defensive, corner, edge, random.
 
 ## Dropping them into the paper (LaTeX)
 

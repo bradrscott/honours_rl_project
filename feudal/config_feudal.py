@@ -69,7 +69,10 @@ W_RECOVERY      = 100   # the ONE rolling window (games) — matches PPO's
 _DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
 _BOARD          = f"{BOARD_SIZE}x{BOARD_SIZE}"
 # Board size in the path so 9x9 and 13x13 runs NEVER overwrite each other.
-SAVE_DIR        = f"./models/feudal/{_BOARD}/{_DIR_KEY}/"
+# Weights save to phase2_checkpoints/ for Phase-2 runs (RUN_TAG set),
+# phase1_checkpoints/ for Phase-1. Both gitignored.
+SAVE_DIR        = (f"./phase2_checkpoints/feudal/{_BOARD}/{_DIR_KEY}/" if RUN_TAG
+                   else f"./phase1_checkpoints/feudal/{_BOARD}/{_DIR_KEY}/")
 LOG_DIR         = f"./logs/feudal/{_BOARD}/{_DIR_KEY}/"
 
 # ══════════════════════════════════════════════════════════════

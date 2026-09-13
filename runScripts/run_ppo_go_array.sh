@@ -23,7 +23,7 @@ source ~/.bashrc
 conda activate rl_project
 cd /scratch/sctbra008/HonoursProject
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$SLURM_ARRAY_TASK_ID]}
 
 echo "Array task ${SLURM_ARRAY_TASK_ID} -> OPPONENT=${OPPONENT}"

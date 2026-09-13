@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════
 # Section 4.2 — Phase-2 Recovery: table + figures (paper-ready).
 #
-# Reads the validated analysis output in phase2_results/ and the raw
+# Reads the validated analysis output in results/phase2/ and the raw
 # per-game logs in models/*/<board>/<run>/games.csv, and writes into
 # paperMaterials/results/:
 #
@@ -29,9 +29,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RES = os.path.join(ROOT, "phase2_results")
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+# __file__ now lives at <repo>/paperMaterials/materialScripts/, so the repo
+# root is three levels up (not two — this moved when the script was filed
+# into materialScripts/ during the repo reorganisation).
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RES = os.path.join(ROOT, "results", "phase2")
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 os.makedirs(OUT, exist_ok=True)
 
 BOARDS = ["9x9", "13x13"]
@@ -45,7 +48,7 @@ AB = {"low": ("corner", "edge"),
       "med": ("corner", "defensive"),
       "high": ("greedy", "defensive")}
 # Phase-2 palette — slate blue / coral (distinct from the 4.1 blue/clay figures).
-PPO_C, FUN_C = "#1f8a8a", "#b0468a"       # teal / plum-magenta
+PPO_C, FUN_C = "#6a1b9a", "#2ec4d6"       # deep purple (dark) / bright cyan (light) — matches Phase-1 curves, grayscale-safe
 PPO_E, FUN_E = "#35506b", "#b3583b"       # darker error-bar shades
 BAND = "#ecebf3"                          # neutral lavender-grey shift shading
 GRID = "#e9ecef"
@@ -151,14 +154,15 @@ def write_table(agg):
 # figure) — figsize kept small and fonts enlarged so labels stay legible
 # after the shrink, matching fig_phase1_bars.png. No error bars (dropped
 # per author preference; SE is still reported in tab_phase2.tex).
-def _grouped_bars(ax, board, agg, metric, ppo_c=PPO_C, fun_c=FUN_C):
+def _grouped_bars(ax, board, agg, metric, ppo_c=PPO_C, fun_c=FUN_C,
+                  edge_c="white", edge_lw=0.8):
     x = np.arange(len(MAGS)); w = 0.38
     ppo = [agg[(board, "ppo", m)][metric] for m in MAGS]
     fun = [agg[(board, "feudal", m)][metric] for m in MAGS]
     b1 = ax.bar(x - w / 2, ppo, w, label="PPO", color=ppo_c,
-                edgecolor="white", linewidth=0.8, zorder=3)
+                edgecolor=edge_c, linewidth=edge_lw, zorder=3)
     b2 = ax.bar(x + w / 2, fun, w, label="FuN", color=fun_c,
-                edgecolor="white", linewidth=0.8, zorder=3)
+                edgecolor=edge_c, linewidth=edge_lw, zorder=3)
     ax.set_xticks(x); ax.set_xticklabels([MAG_NICE[m] for m in MAGS], fontsize=15)
     ax.yaxis.grid(True, color=GRID, lw=0.9, zorder=0); ax.set_axisbelow(True)
     ax.spines[["top", "right", "left"]].set_visible(False)
@@ -167,13 +171,14 @@ def _grouped_bars(ax, board, agg, metric, ppo_c=PPO_C, fun_c=FUN_C):
 
 
 def fig_recovery_bars(agg):
-    # this figure only: turquoise / deep navy (other Phase-2 figures keep the
-    # shared PPO_C/FUN_C palette)
-    REC_PPO, REC_FUN = "#3bbecd", "#1f3a5f"
+    # this figure only: burgundy (dark) / blush (light) with dark outlines —
+    # grayscale-safe and distinct from the purple/cyan curve palette
+    REC_PPO, REC_FUN = "#6a1030", "#f4c2c2"
     fig, axes = plt.subplots(1, 2, figsize=(9, 4.0), sharey=False)
     for ax, board in zip(axes, BOARDS):
         b1, b2, ppo, fun = _grouped_bars(ax, board, agg, "recovery",
-                                         ppo_c=REC_PPO, fun_c=REC_FUN)
+                                         ppo_c=REC_PPO, fun_c=REC_FUN,
+                                         edge_c="#3d0a1c", edge_lw=1.3)
         top = max(max(ppo), max(fun))
         for bars, vals in ((b1, ppo), (b2, fun)):
             for bar, v in zip(bars, vals):
@@ -194,25 +199,30 @@ def fig_recovery_bars(agg):
 
 
 # ── (2b) disruption rate — heatmap, not a bar/line chart ─────────
+# NOTE: figsize's aspect ratio (~1.57:1) matches the LaTeX target box
+# (width=\linewidth, height=5.4cm on a single-column ACM figure, ~8.46cm /
+# 5.4cm), so forcing both dimensions there does not stretch/distort the
+# image. Font sizes are trimmed to match the other Phase-2 figures
+# (fig_dip_adapt, fig_recovery_bars) once both are scaled to \linewidth.
 def fig_disruption_heatmap(disr):
     rows = [(b, m) for b in BOARDS for m in MAGS]   # 6 rows: board x magnitude
     cols = ["ppo", "feudal"]
     grid = np.array([[disr[(b, a, m)] * 100 for a in cols] for (b, m) in rows])
 
-    fig, ax = plt.subplots(figsize=(4.6, 4.6))
+    fig, ax = plt.subplots(figsize=(6.5, 4.15))
     cmap = plt.get_cmap("YlOrBr")
     im = ax.imshow(grid, cmap=cmap, vmin=0, vmax=100, aspect="auto")
 
-    ax.set_xticks([0, 1]); ax.set_xticklabels(["PPO", "FuN"], fontsize=16)
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["PPO", "FuN"], fontsize=22)
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([f"{BOARD_NICE[b]}\n{MAG_NICE[m]}" for b, m in rows],
-                        fontsize=13)
+                        fontsize=18)
     ax.tick_params(axis="both", length=0)
     for spine in ax.spines.values():
         spine.set_visible(False)
     ax.set_xticks(np.arange(-0.5, 2, 1), minor=True)
     ax.set_yticks(np.arange(-0.5, len(rows), 1), minor=True)
-    ax.grid(which="minor", color="white", linewidth=3)
+    ax.grid(which="minor", color="white", linewidth=2.5)
     ax.tick_params(which="minor", length=0)
 
     for i, (b, m) in enumerate(rows):
@@ -220,13 +230,13 @@ def fig_disruption_heatmap(disr):
             v = grid[i, j]
             txt_c = "white" if v > 55 else "#2b2b2b"
             ax.text(j, i, f"{v:.0f}%", ha="center", va="center",
-                    fontsize=16, color=txt_c, fontweight="bold")
+                    fontsize=22, color=txt_c, fontweight="bold")
         if m == "high" and b != BOARDS[-1]:
-            ax.axhline(i + 0.5, color="white", lw=5)
+            ax.axhline(i + 0.5, color="white", lw=4)
 
     cbar = fig.colorbar(im, ax=ax, fraction=0.05, pad=0.12)
-    cbar.set_label("shifts disrupted (%)", fontsize=13)
-    cbar.ax.tick_params(labelsize=11, length=0)
+    cbar.set_label("shifts disrupted (%)", fontsize=17)
+    cbar.ax.tick_params(labelsize=15, length=0)
 
     fig.tight_layout()
     p = os.path.join(OUT, "fig_phase2_disruption_heatmap.png")
@@ -276,7 +286,7 @@ def fig_dip_adapt(agg):
 # ── (4) overlaid rolling curves with shift markers ───────────────
 def _condition_files(board, agent, mag, freq):
     a = AB[mag][0]
-    base = os.path.join(ROOT, "models", AGENT_ROOT[agent], board)
+    base = os.path.join(ROOT, "results", "phase2", AGENT_ROOT[agent], board)
     pats = [f"{a}-phase2-{mag}-{freq}", f"{a}-phase2-{mag}-{freq}-s*"]
     files = []
     for pat in pats:

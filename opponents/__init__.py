@@ -1,4 +1,4 @@
-"""Opponents package: the 6 Go heuristic bots, the shared tactics engine,
+"""Opponents package: the 5 Go heuristic bots, the shared tactics engine,
 and the runtime factory. Import the factory directly from the package:
 
     from opponents import make_opponent

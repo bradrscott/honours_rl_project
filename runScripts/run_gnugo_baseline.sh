@@ -21,14 +21,13 @@
 # Smoke test first: OPPONENT=greedy python gnugo/run_baseline.py --games 1 --verify
 #
 # 5-job QOS limit -> waves:
-#   sbatch --array=0-4 run_gnugo_baseline.sh   (aggressive greedy defensive corner edge)
-#   sbatch --array=5   run_gnugo_baseline.sh   (random)
+#   sbatch --array=0-4 run_gnugo_baseline.sh   (greedy defensive corner edge random)
 
 source ~/.bashrc
 conda activate rl_project
 cd /scratch/sctbra008/HonoursProject
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$SLURM_ARRAY_TASK_ID]}
 
 echo "GNU Go baseline vs ${OPPONENT}"

@@ -13,14 +13,15 @@ import sys
 os.environ.setdefault("OPPONENT", "greedy")
 os.environ.setdefault("BOARD_SIZE", "9")
 os.environ.setdefault("KOMI", "5.5")
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
-OUT = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(ROOT, "paperMaterials", "restOfPaperSection")
 
 # muted palette (cohesive with the Section 3.1 figures)
 SLATE, SLATE_F = "#6b8ea3", "#e7eef2"      # shared components

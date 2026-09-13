@@ -24,14 +24,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import wandb
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 os.makedirs(OUT, exist_ok=True)
 ENTITY, PROJECT = "bradrscott4-university-of-cape-town", "honours-rl-go"
 
 OPPS = ["greedy", "defensive", "corner", "edge", "random"]
 NICE = {o: o.capitalize() for o in OPPS}
 BOARDS = ["9x9", "13x13"]
-PPO_C, FUN_C = "#2f6f8f", "#b9754a"   # muted blue / clay  (matches other figs)
+PPO_C, FUN_C = "#6a1b9a", "#2ec4d6"   # deep purple (dark) / bright cyan (light) — grayscale-safe
 SMOOTH = 0.9                          # W&B default-style smoothing weight
 GNU_C = "#5f7d6a"
 GNUGO = {"9x9": {o: 1.00 for o in OPPS},

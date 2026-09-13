@@ -5,13 +5,13 @@
 
 # NOTE: PBS directives must NOT have trailing comments — PBS reads the whole
 # rest of the line as the value. Settings: project CSCI1142, CPU queue "serial",
-# 12 cores, 48h walltime (CPU is slow), array 0-5 = one opponent per index.
+# 12 cores, 48h walltime (CPU is slow), array 0-4 = one opponent per index.
 #PBS -N PPO_9x9
 #PBS -P CSCI1142
 #PBS -q serial
 #PBS -l select=1:ncpus=12
 #PBS -l walltime=48:00:00
-#PBS -J 0-5
+#PBS -J 0-4
 #PBS -o /mnt/lustre/users/bscott/HonoursProject/ppo9x9_^array_index^.out
 #PBS -e /mnt/lustre/users/bscott/HonoursProject/ppo9x9_^array_index^.err
 #PBS -m abe
@@ -33,7 +33,7 @@ export BOARD_SIZE=9
 export KOMI=5.5
 export TOTAL_TIMESTEPS=3000000
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
 
 echo "9x9 CHPC PPO task ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"

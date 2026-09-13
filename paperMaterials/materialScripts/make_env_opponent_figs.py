@@ -18,7 +18,8 @@ import sys
 os.environ.setdefault("OPPONENT", "greedy")
 os.environ.setdefault("BOARD_SIZE", "9")
 os.environ.setdefault("KOMI", "5.5")
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
 
 import numpy as np
 import matplotlib
@@ -29,7 +30,7 @@ from pettingzoo.classic import go_v5
 
 from opponents.factory import make_opponent
 
-OUT = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(ROOT, "paperMaterials", "restOfPaperSection")
 OPPS = ["greedy", "defensive", "corner", "edge", "random"]
 NICE = {"greedy": "Greedy", "defensive": "Defensive", "corner": "Corner",
         "edge": "Edge", "random": "Random"}
@@ -112,10 +113,10 @@ def fig_boards():
     fig, axes = plt.subplots(1, 2, figsize=(6, 3.2))
     for ax, img, ttl in [(axes[0], img9, "9×9"),
                          (axes[1], img13, "13×13")]:
-        ax.imshow(img); ax.set_title(ttl, fontsize=13); ax.axis("off")
-    fig.tight_layout()
+        ax.imshow(img); ax.set_title(ttl, fontsize=16, pad=4); ax.axis("off")
+    fig.subplots_adjust(wspace=0.03, top=0.94, bottom=0.01, left=0.01, right=0.99)
     p = os.path.join(OUT, "fig_boards.png")
-    fig.savefig(p, dpi=150, bbox_inches="tight"); plt.close(fig)
+    fig.savefig(p, dpi=150, bbox_inches="tight", pad_inches=0.02); plt.close(fig)
     print("wrote", p)
 
 
@@ -183,6 +184,48 @@ def fig_opponents_and_heatmaps(n=9, komi=5.5, n_games=40, max_plies=140):
     print("wrote", p2)
 
 
+# ------------------------------------ fig: opponents + heatmaps, ONE figure
+def fig_opponents_combined(n=9, komi=5.5, n_games=40, max_plies=140):
+    grids, imgs = {}, {}
+    for name in OPPS:
+        grids[name] = play_and_record(name, n, komi, n_games, max_plies, seed0=100)
+        imgs[name] = rep_board(name, n, komi, plies=34, seed=7)
+        print(f"  {name}: recorded {int(grids[name].sum())} moves over {n_games} games")
+
+    ncols = len(OPPS)
+    fig = plt.figure(figsize=(15, 8.3))
+    gs = fig.add_gridspec(2, ncols + 1, width_ratios=[1] * ncols + [0.09],
+                           wspace=0.04, hspace=0.06)
+    axes = np.empty((2, ncols), dtype=object)
+    for col, name in enumerate(OPPS):
+        ax = fig.add_subplot(gs[0, col])
+        axes[0, col] = ax
+        ax.imshow(imgs[name]); ax.set_aspect("equal")
+        ax.set_title(NICE[name], fontsize=22)
+        ax.set_xticks([]); ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_visible(False)
+
+        d = grids[name]
+        d = d / d.max() if d.max() > 0 else d
+        ax2 = fig.add_subplot(gs[1, col])
+        axes[1, col] = ax2
+        im = ax2.imshow(d, cmap="magma", vmin=0, vmax=1, aspect="equal")
+        ax2.set_xticks([]); ax2.set_yticks([])
+
+    axes[0, 0].set_ylabel("example position", fontsize=20)
+    axes[1, 0].set_ylabel("move-density\nheatmap", fontsize=20)
+
+    cax = fig.add_subplot(gs[1, ncols])
+    cbar = fig.colorbar(im, cax=cax)
+    cbar.set_label("relative move frequency", fontsize=18, labelpad=10)
+    cbar.ax.tick_params(labelsize=15)
+
+    p = os.path.join(OUT, "fig_opponents_combined.png")
+    fig.savefig(p, dpi=170, bbox_inches="tight", pad_inches=0.25); plt.close(fig)
+    print("wrote", p)
+
+
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     if which in ("all", "boards"):
@@ -191,4 +234,6 @@ if __name__ == "__main__":
         fig_obs_encoding()
     if which in ("all", "opp"):
         fig_opponents_and_heatmaps()
+    if which == "combined":
+        fig_opponents_combined()
     print("done.")

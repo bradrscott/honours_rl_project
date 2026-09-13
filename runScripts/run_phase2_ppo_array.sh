@@ -13,7 +13,7 @@
 # ── PHASE 2 (RQ3): PPO abrupt-shift & recovery runs ───────────────
 # 9 conditions = 3 magnitudes x 3 frequencies. Each resumes the Phase-1
 # PPO checkpoint of opponent A and applies the shift schedule.
-#   Magnitudes:  LOW  corner->edge | MED  greedy->defensive | HIGH defensive->aggressive
+#   Magnitudes:  LOW  corner->edge | MED  corner->defensive | HIGH greedy->defensive
 #   Frequencies: f1 single shift  | f2 every 500k          | f3 every 200k
 # Every schedule ends with A reintroduced (policy-reuse probe).
 #
@@ -32,8 +32,8 @@ cd /scratch/sctbra008/HonoursProject
 
 IDX=$SLURM_ARRAY_TASK_ID
 MAGS=(low med high)
-AS=(corner greedy defensive)      # pre-shift opponent A (checkpoint source)
-BS=(edge defensive aggressive)    # post-shift opponent B
+AS=(corner corner greedy)      # pre-shift opponent A (checkpoint source)
+BS=(edge defensive defensive)    # post-shift opponent B
 FREQS=(f1 f2 f3)
 
 M=$((IDX / 3))
