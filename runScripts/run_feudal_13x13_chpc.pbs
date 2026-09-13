@@ -6,13 +6,13 @@
 #
 # NOTE: PBS directives must NOT have trailing comments — PBS reads the whole
 # rest of the line as the value. Settings: project CSCI1142, CPU queue "serial",
-# 12 cores, 48h walltime (feudal on CPU is very slow), array 0-5 = one opp/index.
+# 12 cores, 48h walltime (feudal on CPU is very slow), array 0-4 = one opp/index.
 #PBS -N FEU_13x13
 #PBS -P CSCI1142
 #PBS -q serial
 #PBS -l select=1:ncpus=12
 #PBS -l walltime=48:00:00
-#PBS -J 0-5
+#PBS -J 0-4
 #PBS -o /mnt/lustre/users/bscott/HonoursProject/feu13x13_^array_index^.out
 #PBS -e /mnt/lustre/users/bscott/HonoursProject/feu13x13_^array_index^.err
 #PBS -m abe
@@ -34,7 +34,7 @@ export BOARD_SIZE=13
 export KOMI=7.5
 export TOTAL_TIMESTEPS=5000000
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
 
 echo "13x13 CHPC feudal task ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"

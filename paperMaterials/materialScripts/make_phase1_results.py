@@ -19,7 +19,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import wandb
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 os.makedirs(OUT, exist_ok=True)
 ENTITY, PROJECT = "bradrscott4-university-of-cape-town", "honours-rl-go"
 

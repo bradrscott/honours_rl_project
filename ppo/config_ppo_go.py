@@ -69,7 +69,10 @@ W_RECOVERY      = 100   # the ONE rolling window (games) used in Phase 2 for the
 _DIR_KEY        = f"{OPPONENT}-{RUN_TAG}" if RUN_TAG else OPPONENT
 _BOARD          = f"{BOARD_SIZE}x{BOARD_SIZE}"
 # Board size in the path so 9x9 and 13x13 runs NEVER overwrite each other.
-SAVE_DIR        = f"./models/ppo_go/{_BOARD}/{_DIR_KEY}/"
+# Weights save to phase2_checkpoints/ for Phase-2 runs (RUN_TAG set),
+# phase1_checkpoints/ for Phase-1. Both gitignored.
+SAVE_DIR        = (f"./phase2_checkpoints/ppo_go/{_BOARD}/{_DIR_KEY}/" if RUN_TAG
+                   else f"./phase1_checkpoints/ppo_go/{_BOARD}/{_DIR_KEY}/")
 LOG_DIR         = f"./logs/ppo_go/{_BOARD}/{_DIR_KEY}/"   # local dir wandb writes its run files to
 SEED            = int(os.environ.get("SEED", 0))   # env-overridable for re-seeding (e.g. SEED=1 to re-sample a run); default 0 keeps Phase-1 reproducible
 

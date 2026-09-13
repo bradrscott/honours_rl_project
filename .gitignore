@@ -1,7 +1,17 @@
-# training artifacts (kept on the cluster / regenerated locally)
-models/
+# Training artifacts and large binaries (kept on the cluster / W&B; not in git).
+# Comments must be on their own line — git does not support trailing comments.
+
+# trained .pt weights — too large for git
+phase1_checkpoints/
+phase2_checkpoints/
+
+# empty stderr stubs + local W&B run cache
 logs/
-phase2_results/
+
+# local W&B run cache
+wandb/
+
+# raw + processed experiment data IS tracked (see results/)
 
 # python + macOS cruft
 __pycache__/

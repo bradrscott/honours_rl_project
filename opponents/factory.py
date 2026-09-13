@@ -14,7 +14,6 @@ import importlib
 
 _OPPONENTS = {
     "greedy":     ("greedyOpponent",     "GreedyOpponent"),
-    "aggressive": ("aggressiveOpponent", "AggressiveOpponent"),
     "defensive":  ("defensiveOpponent",  "DefensiveOpponent"),
     "corner":     ("cornerOpponent",     "CornerOpponent"),
     "edge":       ("edgeOpponent",       "EdgeOpponent"),

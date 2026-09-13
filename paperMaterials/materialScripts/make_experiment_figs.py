@@ -14,7 +14,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-OUT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "restOfPaperSection")
 
 # muted palette (cohesive with the other Section 3 figures)
 SLATE, SLATE_F = "#6b8ea3", "#e7eef2"      # opponent A (pre-shift / trained)

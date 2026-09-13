@@ -1,6 +1,6 @@
 #!/bin/bash
 # ── Feudal Phase-1 array for CHPC Lengau (PBS Pro) ────────────────
-# Feudal vs ALL 6 opponents, one array subjob each (idx 0-5).
+# Feudal vs ALL 5 opponents, one array subjob each (idx 0-4).
 # OPPONENT env var picks the opponent; config_feudal.py reads it and writes
 # to a per-opponent models/feudal/<opp>/ + logs/ dir.
 #
@@ -13,7 +13,7 @@
 #PBS -q serial
 #PBS -l select=1:ncpus=4
 #PBS -l walltime=48:00:00
-#PBS -J 0-5
+#PBS -J 0-4
 #PBS -m abe
 #PBS -M sctbra008@myuct.ac.za
 # stdout/stderr land in the submit dir as FEU_Go_arr.o<jobid>.<idx> / .e<jobid>.<idx>
@@ -37,7 +37,7 @@ export TOTAL_TIMESTEPS=3000000
 # ── Run ───────────────────────────────────────────────────────────
 cd /mnt/lustre/users/bscott/HonoursProject
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
 
 echo "Array subjob ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"

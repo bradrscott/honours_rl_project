@@ -12,7 +12,7 @@
 #
 # Usage (one config; loop levels/boards/agents outside or via the helper):
 #   python gnugo/eval_agent_vs_gnugo.py --agent feudal \
-#       --checkpoint models/feudal/9x9/greedy/feudal_go_final.pt \
+#       --checkpoint phase1_checkpoints/feudal/9x9/greedy/feudal_go_final.pt \
 #       --board-size 9 --komi 5.5 --level 10 --games 100 --tag greedy
 # ══════════════════════════════════════════════════════════════
 

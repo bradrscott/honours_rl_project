@@ -18,7 +18,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT = os.path.join(ROOT, "paperMaterials", "resultsSection")
 PPO_C, FUN_C = "#2f6f8f", "#b9754a"     # matches the other 4.1 figures
 NICE = {"greedy": "Greedy", "defensive": "Defensive", "corner": "Corner",
         "edge": "Edge", "random": "Random"}

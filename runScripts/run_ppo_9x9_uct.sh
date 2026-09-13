@@ -12,8 +12,8 @@
 
 # ── PPO 9x9 Phase-1 re-run on UCT (CHPC down till Fri) — strategic opponents ──
 # Regenerates the 9x9 PPO finals (3M steps, KOMI 5.5) so Phase 2 can resume from
-# them while CHPC is unavailable. QOS MaxSubmitPU=5 -> array 0-4 (5 tasks); run
-# "random" (index 5) in a 2nd batch (sbatch --array=5 ...) once a slot frees.
+# them while CHPC is unavailable. QOS MaxSubmitPU=5 -> array 0-4 (5 tasks) covers
+# all five opponents in a single batch.
 # GPU cap = 2 -> ~3 waves; PPO 9x9 is fast (~1-2h/run) so all finish overnight.
 # wandb runs ONLINE (UCT nodes have internet) -> live; they appear alongside the
 # CHPC 9x9 PPO runs with the same names — tell them apart by date/run-id.
@@ -27,7 +27,7 @@ export BOARD_SIZE=9
 export KOMI=5.5
 export TOTAL_TIMESTEPS=3000000
 
-OPPONENTS=(aggressive greedy defensive corner edge random)
+OPPONENTS=(greedy defensive corner edge random)
 export OPPONENT=${OPPONENTS[$SLURM_ARRAY_TASK_ID]}
 
 echo "UCT PPO 9x9 task ${SLURM_ARRAY_TASK_ID} -> OPPONENT=${OPPONENT}"

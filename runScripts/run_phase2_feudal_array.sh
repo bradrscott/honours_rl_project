@@ -30,8 +30,8 @@ cd /scratch/sctbra008/HonoursProject
 
 IDX=$SLURM_ARRAY_TASK_ID
 MAGS=(low med high)
-AS=(corner greedy defensive)      # pre-shift opponent A (checkpoint source)
-BS=(edge defensive aggressive)    # post-shift opponent B
+AS=(corner corner greedy)      # pre-shift opponent A (checkpoint source)
+BS=(edge defensive defensive)    # post-shift opponent B
 FREQS=(f1 f2 f3)
 
 M=$((IDX / 3))
