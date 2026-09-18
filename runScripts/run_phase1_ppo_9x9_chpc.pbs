@@ -1,0 +1,38 @@
+#!/bin/bash
+# Phase 1 (baseline training): PPO, 9x9 — CHPC Lengau (PBS Pro) 
+# PPO vs the 5 fixed opponents, one array subjob each (idx 0-4)
+# wandb OFFLINE, synced from the login node afterwards
+# Submit:  qsub run_phase1_ppo_9x9_chpc.pbs
+# Monitor: qstat -u bscott -t Cancel: qdel <jobid>[]
+#
+# PBS directives must NOT carry trailing comments.
+#PBS -N PPO_P1_9x9
+#PBS -P CSCI1142
+#PBS -q serial
+#PBS -l select=1:ncpus=8
+#PBS -l walltime=24:00:00
+#PBS -J 0-4
+#PBS -o /mnt/lustre/users/bscott/HonoursProject/ppo_p1_9x9_^array_index^.out
+#PBS -e /mnt/lustre/users/bscott/HonoursProject/ppo_p1_9x9_^array_index^.err
+#PBS -m abe
+#PBS -M sctbra008@myuct.ac.za
+
+
+module purge
+module load chpc/python/anaconda/3-2024.10.1
+source /mnt/lustre/users/bscott/HonoursProject/rl_env/bin/activate
+export OMP_NUM_THREADS=8
+export USE_WANDB=1
+export WANDB_MODE=offline
+
+export BOARD_SIZE=9
+export KOMI=5.5
+export TOTAL_TIMESTEPS=3000000
+
+cd /mnt/lustre/users/bscott/HonoursProject
+
+OPPONENTS=(greedy defensive corner edge random)
+export OPPONENT=${OPPONENTS[$PBS_ARRAY_INDEX]}
+
+echo "CHPC Phase-1 PPO 9x9 subjob ${PBS_ARRAY_INDEX} -> OPPONENT=${OPPONENT}"
+python ppo/ppo_go.py

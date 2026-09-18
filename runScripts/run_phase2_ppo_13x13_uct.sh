@@ -9,12 +9,10 @@
 #SBATCH --mail-user=sctbra008@myuct.ac.za
 #SBATCH --mail-type=ALL
 
-# ── PHASE 2 (RQ3): PPO abrupt-shift & recovery — UCT CPU (ada), 13x13 ──
-# Identical design to the 9x9 Phase-2 script (same 9 conditions, schedules,
-# 2.3M budget, empirically-calibrated magnitudes) but BOARD_SIZE=13, KOMI=7.5.
-# Resumes from the 13x13 PPO Phase-1 finals. Lets us test whether the recovery
-# finding holds on the bigger board.  sbatch run_phase2_ppo_13x13_uct_cpu.sh
-# Index map: idx = magnitude*3 + frequency.
+# Phase 2: PPO abrupt-shift & recovery — UCT CPU (ada), 13x13
+# 9 conditions = 3 magnitudes x 3 frequencies (array 0-8)
+# Resumes the 13x13 Phase-1 PPO checkpoint of opponent A and applies a shift schedule
+# sbatch run_phase2_ppo_13x13_uct.sh
 
 source ~/.bashrc
 conda activate rl_project
@@ -26,8 +24,6 @@ export KOMI=7.5
 
 IDX=$SLURM_ARRAY_TASK_ID
 MAGS=(low med high)
-# Empirically-calibrated magnitudes (all shifts BETWEEN masterable bots):
-#   LOW  = corner->edge   MED = corner->defensive   HIGH = greedy->defensive
 AS=(corner corner greedy)
 BS=(edge defensive defensive)
 FREQS=(f1 f2 f3)
@@ -35,9 +31,6 @@ FREQS=(f1 f2 f3)
 M=$((IDX / 3)); F=$((IDX % 3))
 A=${AS[$M]}; B=${BS[$M]}
 
-# Budget + schedule SCALED UP ~1.7x from the 9x9 Phase-2 (2.3M -> 4.0M), matching
-# the Phase-1 13x13/9x9 ratio (5M/3M): 13x13 learns slower, so recovery segments
-# are stretched proportionally to give recovery a fair chance (else censored).
 case ${FREQS[$F]} in
   f1) SCHED="${B}@500000,${A}@3200000" ;;
   f2) SCHED="${B}@500000,${A}@1400000,${B}@2300000,${A}@3200000" ;;
@@ -45,12 +38,10 @@ case ${FREQS[$F]} in
 esac
 
 export OPPONENT=$A
-export RESUME_FROM=./models/ppo_go/${BOARD_SIZE}x${BOARD_SIZE}/${A}/ppo_go_final.pt
+export RESUME_FROM=./phase1_checkpoints/ppo_go/${BOARD_SIZE}x${BOARD_SIZE}/${A}/ppo_go_final.pt
 export SHIFT_SCHEDULE=$SCHED
 export TOTAL_TIMESTEPS=4000000
-# Seed-aware tag: seed 0 keeps the original tag (backward compatible); seeds 1+
-# append -s<N> so folder + wandb name are distinct per seed. Launch with e.g.
-#   sbatch --export=ALL,SEED=1 run_phase2_ppo_13x13_uct_cpu.sh
+
 export SEED="${SEED:-0}"
 SEEDSUF=""; [ "$SEED" != "0" ] && SEEDSUF="-s${SEED}"
 export RUN_TAG=phase2-${MAGS[$M]}-${FREQS[$F]}${SEEDSUF}

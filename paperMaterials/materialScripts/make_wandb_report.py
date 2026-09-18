@@ -36,6 +36,14 @@ def by_opponent(title, ykey):
                        layout=wr.Layout(w=8, h=6))
 
 
+def by_frequency(title, ykey):
+    """Per-run Phase-2 curves for one agent+board+magnitude, coloured by
+    shift frequency (f1/f2/f3)."""
+    return wr.LinePlot(title=title, x="Step", y=[ykey],
+                       legend_fields=["meta_frequency"],
+                       layout=wr.Layout(w=8, h=6))
+
+
 # every metric logged, per agent (title, key)
 PPO_METRICS = [
     ("Win rate", "custom/win_rate"),
@@ -77,12 +85,26 @@ def agent_grouped(title, ykey):
 
 
 blocks = [
-    wr.H1("Raw Training Curves (Weights & Biases)"),
-    wr.P("Raw per-run and per-condition curves exported directly from W&B, "
-         "for the appendix. Switch to light mode before downloading each panel."),
+    wr.H1("Honours RL Go — All Training Runs (W&B)"),
+    wr.P("Complete set of raw training and evaluation curves for the study, "
+         "straight from Weights & Biases: the GNU Go external-reference baseline "
+         "(10 runs), Phase-1 capability training (20 runs), and Phase-2 recovery "
+         "under opponent shifts (108 runs)."),
 
-    wr.H1("Phase 1 - Capability"),
+    wr.H1("GNU Go Baseline (external reference)"),
 ]
+
+# GNU Go baseline: win rate per opponent, per board (agent = gnugo, 10 runs).
+for b in BOARDS:
+    rs = runset(f"GNU Go · {NICE_B[b]}", C("meta_phase", "baseline"), C("meta_board", b))
+    blocks += [
+        wr.H3(f"GNU Go · {NICE_B[b]}"),
+        wr.PanelGrid(runsets=[rs], panels=[
+            by_opponent("Win rate", "custom/win_rate"),
+        ]),
+    ]
+
+blocks += [wr.H1("Phase 1 - Capability")]
 
 # Phase 1: PPO and Feudal kept in SEPARATE sections (each panel = one agent,
 # coloured by opponent). Aggressive opponent excluded (not one of the paper's five).
@@ -99,22 +121,28 @@ for agent, nice, metrics in (("ppo", "PPO", PPO_METRICS),
                          panels=[by_opponent(t, k) for t, k in metrics]),
         ]
 
-# Phase 2: per condition (board × magnitude × frequency), PPO vs FuN mean±stderr
+# Phase 2: per agent, per board — ALL logged metrics, runs coloured by shift
+# condition (magnitude × frequency). Mirrors the Phase-1 layout, plus the
+# Phase-2-specific recovery metrics.
 blocks += [wr.H1("Phase 2 - Recovery")]
-for b in BOARDS:
-    blocks += [wr.H2(f"Phase 2 · {NICE_B[b]}")]
-    for m in MAGS:
-        grids = []
-        panels = []
-        for fq in FREQS:
-            rs = runset(f"{NICE_B[b]} · {NICE_M[m]} · {fq}",
-                        C("meta_phase", "phase2"), C("meta_board", b),
-                        C("meta_magnitude", m), C("meta_frequency", fq))
-            # each condition needs its own runset → its own PanelGrid
-            grids.append(wr.PanelGrid(runsets=[rs], panels=[
-                agent_grouped(f"{NICE_M[m]} · {fq} · win rate", "custom/win_rate")
-            ]))
-        blocks += grids
+PHASE2_EXTRA = [
+    ("Rolling win rate", "phase2/rolling"),
+    ("Recovery games (last shift)", "phase2/recovery_games_last_shift"),
+    ("Pre-shift baseline", "phase2/baseline"),
+]
+for agent, nice, metrics in (("ppo", "PPO", PPO_METRICS + PHASE2_EXTRA),
+                             ("feudal", "Feudal (FuN)", FUN_METRICS + PHASE2_EXTRA)):
+    blocks.append(wr.H2(f"Phase 2 · {nice}"))
+    for b in BOARDS:
+        for m in MAGS:
+            rs = runset(f"{nice} · {NICE_B[b]} · {NICE_M[m]}",
+                        C("meta_phase", "phase2"), C("meta_agent", agent),
+                        C("meta_board", b), C("meta_magnitude", m))
+            blocks += [
+                wr.H3(f"{nice} · {NICE_B[b]} · {NICE_M[m]}"),
+                wr.PanelGrid(runsets=[rs],
+                             panels=[by_frequency(t, k) for t, k in metrics]),
+            ]
 
 # Update the existing report in place if EXISTING_URL is set, else create new.
 EXISTING_URL = ("https://wandb.ai/bradrscott4-university-of-cape-town/"
@@ -124,6 +152,7 @@ if EXISTING_URL:
     report = wr.Report.from_url(EXISTING_URL)
     report.blocks = blocks
     report.width = "fluid"
+    report.title = "Honours RL Go — All Training Runs (GNU Go, Phase 1 & 2)"
 else:
     report = wr.Report(entity=E, project=P,
                        title="Appendix - Raw Training Curves (Phase 1 & 2)",

@@ -122,7 +122,7 @@ def main():
     ax.set_xlim(lo, hi)
     ax.set_ylim(0, 1.0)
     ax.set_xlabel("games since the shift", fontsize=17)
-    ax.set_ylabel(f"rolling win rate (window = {W})", fontsize=17)
+    ax.set_ylabel(f"rolling win rate (W = {W})", fontsize=17)
     ax.tick_params(axis="both", labelsize=14)
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()

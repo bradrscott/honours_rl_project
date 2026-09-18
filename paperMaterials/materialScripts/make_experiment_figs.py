@@ -47,9 +47,9 @@ def segments(sched):
 
 
 def fig_shift_schedule():
-    # vivid pair for this figure (distinct from the pipeline's blue/amber/teal/purple)
-    A_F, A_E = "#d8f2dd", "#2f9e44"   # seen trained opponent (pre-shift)  — green
-    B_F, B_E = "#fbd6e4", "#d6336c"   # unseen post-shift opponent          — rose/pink
+    # muted periwinkle pair, distinguished by luminance (grayscale-safe)
+    A_F, A_E = "#eaebf3", "#8f93bf"   # seen trained opponent (pre-shift)  — light periwinkle
+    B_F, B_E = "#9ea3cf", "#4a4f86"   # unseen post-shift opponent          — mid periwinkle
     fig, ax = plt.subplots(figsize=(11, 3.6))
     rows = list(SCHED.keys())
     h = 0.6
@@ -100,11 +100,8 @@ def fig_phase1_phase2_flow():
                      facecolor=fill, edgecolor=edge, linewidth=1.6))
         ax.text(cx, 2.15, text, ha="center", va="center", fontsize=9.8, color=INK)
 
-    # vivid, distinct palette for this figure (fill, edge) per box
-    BLUE_F,  BLUE_E  = "#d9e8fb", "#2f6fd0"
-    AMBER_F, AMBER_E = "#fdecd2", "#e8952f"
-    TEAL_F,  TEAL_E  = "#d4f2ea", "#17a589"
-    PURP_F,  PURP_E  = "#ecdcf7", "#8e44c9"
+    # muted, uniform palette — soft periwinkle tint across all boxes (professional, low-colour)
+    BOX_F, BOX_E = "#e7e8f2", "#4a4f86"
     ARROW_C = "#5a6b73"
 
     def arrow(x1, x2, label=None):
@@ -115,13 +112,13 @@ def fig_phase1_phase2_flow():
                     style="italic", color=MUTE)
 
     box(3.4, 5.6, "Phase 1\nTrain each agent vs each\nfixed opponent to a stable\nwin-rate baseline",
-        BLUE_F, BLUE_E)
+        BOX_F, BOX_E)
     box(10.2, 4.4, "Saved checkpoint\n(the pre-shift baseline\npolicy for each opponent)",
-        AMBER_F, AMBER_E)
+        BOX_F, BOX_E)
     box(16.8, 5.2, "Phase 2\nResume checkpoint, apply\nabrupt opponent shifts,\nlog per-game win rate",
-        TEAL_F, TEAL_E)
+        BOX_F, BOX_E)
     box(22.2, 3.6, "Metrics\nrecovery time, dip depth,\nadaptation cost,\ndisruption rate",
-        PURP_F, PURP_E, h=1.95)
+        BOX_F, BOX_E, h=1.95)
     arrow(6.25, 7.95); arrow(12.45, 14.15); arrow(19.45, 20.35)
 
     fig.tight_layout()

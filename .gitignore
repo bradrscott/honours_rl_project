@@ -13,6 +13,9 @@ wandb/
 
 # raw + processed experiment data IS tracked (see results/)
 
+# paper drafts, LaTeX source and materials — kept locally, not in the code repo
+paperInfo/
+
 # python + macOS cruft
 __pycache__/
 *.pyc
