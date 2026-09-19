@@ -200,9 +200,9 @@ def main():
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["opponent", "games", "gnugo_wins", "gnugo_win_rate",
-                    "level", "board_size", "komi", "skipped_crashes"])
+                    "level", "board_size", "komi"])
         w.writerow([opp, completed, wins, round(final_wr, 4),
-                    args.level, n, args.komi, skipped])
+                    args.level, n, args.komi])
     print(f"  ✓ wrote {out}")
     if run is not None:
         run.summary["gnugo_win_rate"] = final_wr

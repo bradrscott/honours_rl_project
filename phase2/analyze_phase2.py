@@ -5,23 +5,21 @@
 # RECOMPUTES recovery per shift straight from the per-game rows (so the
 # results don't depend on the run-time detector), and writes:
 #
-#   results/phase2/recovery_table.csv   one row per (run, shift):
+#   results/phase2/summary/recovery_table.csv   one row per (run, shift):
 #       agent, board, magnitude, frequency, seed, condition, shift_idx,
 #       to_opponent, baseline, threshold80 (=0.8*baseline), min_rolling,
 #       perf_drop (dip), end_rolling, disrupted (1/0), recovered (1/0),
 #       recovery_games (0 if never dipped below the band; duration if it
 #       returned; censored lower bound if it dipped but never returned),
 #       adapt_cost_games, adapt_cost_ksteps, segment_games.
-#   results/phase2/summary_by_condition_by_seed.csv   EACH SEED's own metrics,
+#   results/phase2/summary/summary_by_condition_by_seed.csv   EACH SEED's own metrics,
 #       one row per (board, agent, magnitude, frequency, seed).
-#   results/phase2/summary_by_condition.csv   MERGED across seeds, one row per
+#   results/phase2/summary/summary_by_condition.csv   MERGED across seeds, one row per
 #       (board, agent, magnitude, frequency): n_seeds, n_shifts, n_disrupted,
 #       recovery_mean/recovery_se, dip_mean/dip_se, worst_dip,
 #       adapt_cost_mean/adapt_cost_se. Each metric is collapsed per
 #       (condition, seed) first, then meaned over seeds with SE=stdev/sqrt(n)
 #       (SE=0 with a single seed).
-#   results/phase2/<run>__rolling.png   rolling win rate vs games,
-#       shift points marked (needs matplotlib; skipped if missing)
 #
 # Definitions (must match phase2.py):
 #   * ONE continuous rolling window of W=100 completed games (matches the CSV
@@ -59,6 +57,7 @@ from collections import defaultdict, deque
 WINDOW        = 100   # rolling/recovery window, in completed games (both boards)
 RECOVERY_FRAC = 0.8
 OUT_DIR       = "results/phase2"
+SUMMARY_DIR   = os.path.join(OUT_DIR, "summary")   # the three summary CSVs live here
 
 # ── Magnitude relabel ─────────────────────────────────────────
 # The Phase-2 runs were RE-RUN clean with corrected tags, so the folder names
@@ -145,7 +144,7 @@ def _excursion(seg_roll, level):
 def analyze_run(rows, W):
     """Recompute per-shift baseline / dip / recovery / adaptation-cost from raw
     rows, using a rolling window of W games. Annotates each row with 'roll_w'
-    (the W-window rolling value) so plots can use the same series."""
+    (the W-window rolling value) used by the per-shift metric computations."""
     for r, rv in zip(rows, rolling_series([r["win"] for r in rows], W)):
         r["roll_w"] = rv
     results = []
@@ -209,38 +208,10 @@ def analyze_run(rows, W):
     return results
 
 
-def plot_run(rows, title, out_png, W):
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-    except ImportError:
-        return False
-    games   = [r["game_idx"] for r in rows]
-    rolling = [r.get("roll_w", r["rolling"]) for r in rows]
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(games, rolling, lw=1)
-    # mark each shift (first game of each segment)
-    seen = set()
-    for r in rows:
-        if r["shift_idx"] >= 0 and r["shift_idx"] not in seen:
-            seen.add(r["shift_idx"])
-            ax.axvline(r["game_idx"], ls="--", lw=0.8, color="red")
-            ax.annotate(r["opponent"], (r["game_idx"], 1.02),
-                        fontsize=7, rotation=45, annotation_clip=False)
-    ax.set_xlabel("completed games")
-    ax.set_ylabel(f"rolling win rate (W={W})")
-    ax.set_ylim(0, 1.05)
-    ax.set_title(title)
-    fig.tight_layout()
-    fig.savefig(out_png, dpi=150)
-    plt.close(fig)
-    return True
-
-
 def main():
     roots = sys.argv[1:] or ["./results/phase2/ppo_go", "./results/phase2/feudal"]
     os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(SUMMARY_DIR, exist_ok=True)
 
     table = []
     for agent, board, condition, path in find_runs(roots):
@@ -253,20 +224,14 @@ def main():
             table.append({"agent": agent, "board": board, "magnitude": magnitude,
                           "frequency": frequency, "seed": seed, "label": label,
                           "condition": condition, **r})
-        plot_dir = os.path.join(OUT_DIR, "rolling_plots", agent)
-        os.makedirs(plot_dir, exist_ok=True)
-        plotted = plot_run(rows, f"{agent} {board} — {label} s{seed}  ({condition})",
-                           os.path.join(plot_dir,
-                                        f"{agent}__{board}__{label}__s{seed}__rolling.png"), WINDOW)
         print(f"  {agent:6s} {board:6s} {label:10s} s{seed} "
-              f"shifts={len(res)} games={rows[-1]['game_idx']:>6,} "
-              f"plot={'yes' if plotted else 'no (no matplotlib)'}")
+              f"shifts={len(res)} games={rows[-1]['game_idx']:>6,}")
 
     if not table:
         print("No Phase-2 games.csv found under:", roots)
         return
 
-    out_csv = os.path.join(OUT_DIR, "recovery_table.csv")
+    out_csv = os.path.join(SUMMARY_DIR, "recovery_table.csv")
     with open(out_csv, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(table[0].keys()))
         w.writeheader()
@@ -306,7 +271,7 @@ def main():
         })
     by_seed_rows.sort(key=lambda r: (r["board"], r["agent"], _mag(r["magnitude"]),
                                      r["frequency"], r["seed"]))
-    out_seed = os.path.join(OUT_DIR, "summary_by_condition_by_seed.csv")
+    out_seed = os.path.join(SUMMARY_DIR, "summary_by_condition_by_seed.csv")
     with open(out_seed, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(by_seed_rows[0].keys()))
         w.writeheader(); w.writerows(by_seed_rows)
@@ -353,7 +318,7 @@ def main():
             "mean_adapt_cost_ksteps": cost_mu,
         })
 
-    out_summary = os.path.join(OUT_DIR, "summary_by_condition.csv")
+    out_summary = os.path.join(SUMMARY_DIR, "summary_by_condition.csv")
     with open(out_summary, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(summary_rows[0].keys()))
         w.writeheader(); w.writerows(summary_rows)

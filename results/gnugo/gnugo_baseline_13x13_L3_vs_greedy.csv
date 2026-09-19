@@ -1,2 +1,2 @@
-opponent,games,gnugo_wins,gnugo_win_rate,level,board_size,komi,skipped_crashes
-greedy,15,15,1.0,3,13,7.5,0
+opponent,games,gnugo_wins,gnugo_win_rate,level,board_size,komi
+greedy,15,15,1.0,3,13,7.5

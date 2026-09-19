@@ -1,2 +1,2 @@
-opponent,games,gnugo_wins,gnugo_win_rate,level,board_size,komi,skipped_crashes
-random,100,100,1.0,10,9,5.5,0
+opponent,games,gnugo_wins,gnugo_win_rate,level,board_size,komi
+random,100,100,1.0,10,9,5.5

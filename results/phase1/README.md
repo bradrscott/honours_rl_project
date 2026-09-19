@@ -10,12 +10,6 @@ from scratch against each of the five fixed opponents, on 9x9 and 13x13).
 
 ## Raw training data
 
-Phase-1 raw training curves (win rate, losses, entropy, etc. over training steps)
-are **not stored locally** — they were logged to Weights & Biases during training:
+Phase-1 raw training logs (win rate, losses, entropy, etc. over training steps) are not stored in this repo — they were logged to Weights & Biases during training. The complete set of curves for every run is in the W&B report below:
 
-- Entity:  `bradrscott4-university-of-cape-town`
-- Project: `honours-rl-go`
-
-The training-curve and internals figures in the paper are pulled directly from
-W&B by the scripts in `paperMaterials/materialScripts/` (`make_phase1_curves.py`,
-`make_phase1_internals.py`, `make_phase1_results.py`).
+https://api.wandb.ai/links/bradrscott4-university-of-cape-town/fct92j4k

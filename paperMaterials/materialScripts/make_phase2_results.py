@@ -58,7 +58,7 @@ INK = "#2b2b2b"
 # ── read the validated per-condition summary ─────────────────────
 def load_summary():
     rows = {}
-    with open(os.path.join(RES, "summary_by_condition.csv")) as f:
+    with open(os.path.join(RES, "summary", "summary_by_condition.csv")) as f:
         for r in csv.DictReader(f):
             key = (r["board"], r["agent"], r["magnitude"], r["frequency"])
             rows[key] = r
