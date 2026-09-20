@@ -222,7 +222,7 @@ def train():
     # Identical logic to ppo_go.py so both agents are measured the same way.
     if RESUME_FROM:
         model.load_state_dict(torch.load(RESUME_FROM, map_location=device))
-        print(f"  ✓ resumed weights from {RESUME_FROM}")
+        print(f"  resumed weights from {RESUME_FROM}")
         # optimizer restarts fresh — identical treatment for both agents
     shifter = ShiftManager(SHIFT_SCHEDULE)
     tracker = RecoveryTracker(W_RECOVERY)
@@ -328,7 +328,7 @@ def train():
                     if new_opp:
                         env.set_opponent(new_opp)         # next game = new opp
                         tracker.on_shift(global_step, new_opp)
-                        print(f"  ⚡ SHIFT @ step {global_step:,} / game "
+                        print(f"  SHIFT @ step {global_step:,} / game "
                               f"{tracker.game_idx:,} -> {new_opp} "
                               f"(baseline rolling{W_RECOVERY} = "
                               f"{tracker.shifts[-1]['baseline']:.3f})", flush=True)
@@ -388,15 +388,14 @@ def train():
         if not shifter.active and global_step - last_save >= SAVE_EVERY:
             path = os.path.join(SAVE_DIR, f"feudal_go_{global_step}.pt")
             torch.save(model.state_dict(), path)
-            print(f"  ✓ saved {path}", flush=True)
+            print(f"  saved {path}", flush=True)
             last_save = global_step
 
     torch.save(model.state_dict(), os.path.join(SAVE_DIR, "feudal_go_final.pt"))
-    print("\n  ✓ Final model saved.")
+    print("\n  Final model saved.")
     if shifter.active:
-        tracker.save_summary(os.path.join(SAVE_DIR, "recovery_summary.json"))
         gamelog.close()
-        print(f"  ✓ Phase-2 recovery summary + games.csv saved to {SAVE_DIR}")
+        print(f"  Phase-2 games.csv saved to {SAVE_DIR}")
     wandb.finish()
     env.close()
 

@@ -200,7 +200,7 @@ def main():
         w.writerow(["agent", "trained_vs", "board_size", "gnugo_level",
                     "games", "wins", "win_rate"])
         w.writerow([args.agent, args.tag, n, args.level, done, wins, round(final, 4)])
-    print(f"  ✓ wrote {out}")
+    print(f"  wrote {out}")
     if run is not None:
         run.summary["win_rate"] = final; run.finish()
 

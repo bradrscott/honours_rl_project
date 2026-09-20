@@ -203,7 +203,7 @@ def main():
                     "level", "board_size", "komi"])
         w.writerow([opp, completed, wins, round(final_wr, 4),
                     args.level, n, args.komi])
-    print(f"  ✓ wrote {out}")
+    print(f"  wrote {out}")
     if run is not None:
         run.summary["gnugo_win_rate"] = final_wr
         run.finish()

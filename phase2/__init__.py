@@ -1,8 +1,6 @@
-"""Phase 2 (RQ3) package: opponent-shift scheduling + recovery-time tracking.
-Import the machinery directly from the package:
-
-    from phase2 import ShiftManager, RecoveryTracker, GameLog
-"""
+# Makes the Phase-2 shift/recovery tracking classes available directly from
+# the phase2 package, so other files (ppo_go.py, feudalAgent.py) can import
+# them with `from phase2 import ShiftManager, RecoveryTracker, GameLog`.
 from phase2.phase2 import (
     ShiftManager, RecoveryTracker, GameLog, parse_schedule, RECOVERY_FRAC,
 )

@@ -528,11 +528,10 @@ def train():
     torch.save(net.state_dict(), os.path.join(SAVE_DIR, "ppo_go_final.pt"))
     print("\n  Final model saved.")
 
-    # Phase 2 - dump the recovery summary and close the per-game log
+    # Phase 2 - close the per-game log
     if shifter.active:
-        tracker.save_summary(os.path.join(SAVE_DIR, "recovery_summary.json"))
         gamelog.close()
-        print(f"  Phase-2 recovery summary + games.csv saved to {SAVE_DIR}")
+        print(f"  Phase-2 games.csv saved to {SAVE_DIR}")
     wandb.finish()
 
 
