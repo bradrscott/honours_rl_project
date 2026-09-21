@@ -141,8 +141,8 @@ def evaluate_move(A, opp_stones, own_stones, r, c, n):
     on_board_neighbours = 0
     own_neighbours = 0
 
-    merged_libs = set()          # liberties of our group after the move
-    captured_points = set()          # opponent points freed by capture
+    merged_libs = set()          
+    captured_points = set()          
     seen_own_grp = set()
     seen_opp_grp = set()
 

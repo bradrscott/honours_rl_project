@@ -16,6 +16,6 @@ These are standard comma-delimited CSVs. Any text editor reads them correctly.
 
 If you open one in Excel on a Mac and every value lands in one column, that is
 an Excel regional-separator halt, not a problem with the file. To view it as a proper table:
-- Import it: open a blank workbook → `Data` tab → `Get Data (Power Query)` → `Text/CSV` (or `From Text/CSV`) → pick the file → set the delimiter to Comma → `Load`.
+- Import it: open a blank workbook → `Data` tab → `Get Data (Power Query)` - `Text/CSV` (or `From Text/CSV`) - pick the file - set the delimiter to Comma - `Load`.
 
 

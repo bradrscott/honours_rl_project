@@ -58,7 +58,7 @@ The columns with their meanings below:
 `end_rolling` - Rolling win rate at the end of the segment. 
 `disrupted` - 1 if the rolling win rate fell below `threshold80` at any point. 
 `recovered` - 1 if it returned above `threshold80` before the segment ended. 
-`recovery_games` - Recovery time: games spent below the band (first drop → first return). 0 if it never dipped below; a censored lower bound (first drop → segment end) if it dipped but never returned. 
+`recovery_games` - Recovery time: games spent below the band (first drop → first return). 0 if it never dipped below; a censored lower bound (first drop - segment end) if it dipped but never returned. 
 `adapt_cost_games`  Adaptation cost: area under the dip, in win-rate × games. 
 `adapt_cost_ksteps`  Same area in win-rate × thousand env-steps (length-independent). 
 `segment_games`  Number of games in this post-shift segment. 
@@ -90,7 +90,7 @@ The columns with their meanings below:
 `n_seeds` Seeds averaged (normally 3). 
 `n_shifts` Total shifts pooled across seeds. 
 `n_disrupted` Total disrupted shifts pooled across seeds. 
-`recovery_mean`, `recovery_se` Mean ± SE of recovery time across seeds (0-filled: non-disrupted shifts count as 0).
+`recovery_mean`, `recovery_se` Mean +- SE of recovery time across seeds (0-filled: non-disrupted shifts count as 0).
 `dip_mean`, `dip_se` Mean ± SE of dip depth across seeds. 
 `worst_dip` Deepest dip seen in any seed. 
 `adapt_cost_mean`, `adapt_cost_se` Mean ± SE of adaptation cost (ksteps) across seeds. 

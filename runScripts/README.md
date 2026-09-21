@@ -40,7 +40,7 @@ Phase 2 resumes a Phase-1 checkpoint and applies an abrupt opponent shift (9 con
 
 The trained weights (`phase1_checkpoints/` and `phase2_checkpoints/`) are not in this submission — they are several GB and too large for version control. This has one practical consequence for anyone re-running the scripts:
 
-- Phase-1 scripts train from scratch They need no checkpoints and run as is, writing their finals to `phase1_checkpoints/<agent>/<board>/<opponent>/`.
+- Phase-1 scripts train from scratch. They need no checkpoints and run as is, writing their finals to `phase1_checkpoints/<agent>/<board>/<opponent>/`.
 - Phase-2 scripts resume a Phase-1 checkpoint Each sets
   `RESUME_FROM=./phase1_checkpoints/<agent>/<board>/<opponent>/<agent>_go_final.pt`.
   So Phase 2 cannot run until those Phase-1 finals exist.

@@ -38,7 +38,6 @@ def weight_init(module):
         nn.init.orthogonal_(module.weight_hh)
 
 # perception section - maps the board observation to a shared latent state z.
-
 class Perception(nn.Module):
 
     # CNN feature

@@ -1,5 +1,5 @@
 # Feudal Network agent for Go
-# Architecture adapted from lweitkamp/feudalnets-pytorch (MIT)
+# Architecture adapted from lweitkamp/feudalnets-pytorch 
 
 # standard libraries
 import os
@@ -21,18 +21,16 @@ from feudal.config_feudal import *
 from opponents import make_opponent
 from phase2 import ShiftManager, RecoveryTracker, GameLog
 
-# Environment wrapper — Single-agent view of two-player Go 
-# (our agent is Black, the opponent is White). Reward is
+# Environment wrapper — single-agent view of two-player Go 
+# (our agent is black, the opponent is white). Reward is
 # read from env.rewards["black_0"] directly,
 # so it is always our reward regardless of whose turn is next.
-
 class GoEnv:
     AGENT = "black_0"
     OPP   = "white_0"
 
+    # store config, build the go_v5 env and the starting opponent
     def __init__(self, board_size=BOARD_SIZE, komi=KOMI, seed=SEED):
-
-        # store config, build the go_v5 env and the starting opponent
         self.board_size = board_size
         self.env = go_v5.env(board_size=board_size, komi=komi)
         self.opponent = make_opponent(OPPONENT, board_size, OPPONENT_EPSILON)
@@ -120,7 +118,7 @@ class GoEnv:
 
 
 # Everything below builds and runs the FuN training loop - set up the run
-# (device, W&B, the manager-worker network, Phase-2 resume), then repeatedly
+# (device, W&B, the manager-worker network, Phase-2 resume) then repeatedly
 # collect a rollout of games from GoEnv and update the network on it with
 # feudal_loss, logging metrics and checkpoints as it goes.
 
@@ -248,7 +246,7 @@ def train():
         # Detach goals once at the rollout boundary — not every step.
         # The manager trains through the state-goal cosine gradient flowing
         # into the goal - detaching every step zeroed that gradient and the 
-        # manager never learned (manager/cosines stayed close to 0) - the fix. 
+        # manager never learned (manager, cosines stayed close to 0) - the fix. 
         # States never carry gradient (manager detaches them already).
         goals = [g.detach() for g in goals]
         for _ in range(NUM_STEPS):
@@ -295,7 +293,6 @@ def train():
             mask = env.get_action_mask()
 
             if done:
-
                 # episode ended - record win,reward, length into the windows
                 episodes += 1
                 win = reward > 0

@@ -99,6 +99,7 @@ class GoEnv:
                 and self.env.agent_selection == self.OPP
                 and not (self.env.terminations.get(self.OPP, False)
                          or self.env.truncations.get(self.OPP, False))):
+            
             # again, only the observation is needed here
             opp_obs, _, _, _, _ = self.env.last()
             opp_action = self.opponent.select_action(opp_obs)
@@ -145,8 +146,7 @@ class GoEnv:
 
 
 # Actor-Critic network — shared CNN trunk, separate policy/value heads.
-# Orthogonal weight initialisation for Linear/Convolutional layers with the
-# bias zeroed. 
+# Orthogonal weight initialisation for Linear/Convolutional layers with the bias zeroed. 
 # keeps the weight matrix's rows independent of each other (like a scaled rotation),
 # which helps preserve signal size as it passes through many layers at the start of 
 # training instead of vanishing or exploding 
@@ -414,7 +414,7 @@ def train():
             ).item()
         adv, returns = compute_gae(b_rew, b_val, b_done, last_v, GAMMA, GAE_LAMBDA)
 
-        # batch -> tensors
+        # batch to tensors
         obs_t = torch.as_tensor(np.array(b_obs), dtype=torch.float32, device=device)
         mask_t = torch.as_tensor(np.array(b_mask), dtype=torch.bool, device=device)
         act_t = torch.as_tensor(b_act, dtype=torch.long, device=device)

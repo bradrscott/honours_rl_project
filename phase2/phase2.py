@@ -27,7 +27,7 @@ def parse_schedule(s):
     return out
 
 
-# Decides WHEN the opponent should change during Phase 2 by walking through
+# Decides when the opponent should change during Phase 2 by walking through
 # a fixed schedule of (step, opponent) pairs. Does nothing at all in Phase 1
 class ShiftManager:
 
