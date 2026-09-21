@@ -1,12 +1,11 @@
 # PPO
 
-The flat baseline agent - a single actor-critic network trained with Proximal
-Policy Optimization (PPO), over a shared CNN trunk on the Go board.
+The flat baseline agent - a single actor-critic network trained with Proximal Policy Optimization (PPO)
 
 ## Files
 
-- `ppo_go.py` — the whole agent: the go_v5 environment wrapper, the actor-critic network (shared CNN trunk with separate policy/value heads), and the `train()` loop. Trains against its configured opponent and writes checkpoints + W&B logs.
-- `config_ppo_go.py` — all settings for a run (board, opponent, PPO hyperparameters, output paths).
+- `ppo_go.py` — the whole agent - the go_v5 environment wrapper, the actor-critic network (shared CNN trunk with separate policy/value heads) and the `train()` loop
+- `config_ppo_go.py` — all settings for a run.
 - `__init__.py` — package marker.
 
 ## How to approach this folder
