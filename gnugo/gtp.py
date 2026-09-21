@@ -1,24 +1,21 @@
-# ── GTP client ────────────────────────────────────────────────
-# Minimal Go Text Protocol client: launches an engine (GNU Go) as a
-# subprocess and exchanges GTP commands with it.
-#
-# GTP response format:
-#   success:  "= [id] <result>\n\n"   (result may span multiple lines)
-#   failure:  "? [id] <error>\n\n"
-# A response is terminated by a BLANK line. We send no command ids.
+# GTP client
 
+# Minimal Go Text Protocol client - launches an engine (GNU Go) as a
+# subprocess and exchanges GTP commands with it.
+
+# subprocess launches and talks to the GNU Go process
 import subprocess
 
 
+# error type raised for any GTP failure 
 class GTPError(RuntimeError):
     pass
 
 
 class GTPEngine:
+
+    # launch the engine subprocess args
     def __init__(self, binary="gnugo", args=None, stderr_log=None):
-        """args: extra CLI args. Default runs GNU Go in GTP mode.
-        stderr_log: path to capture the engine's stderr (so crashes are
-        diagnosable); None -> discard."""
         if args is None:
             args = ["--mode", "gtp"]
         self._errfile = open(stderr_log, "w") if stderr_log else None
@@ -38,13 +35,14 @@ class GTPEngine:
                 f"and make sure `{binary}` is on PATH."
             )
 
+    # send one GTP command and return its result string
     def send(self, command):
-        """Send one GTP command, return its result string (raises on '?')."""
         if self.proc.poll() is not None:
             raise GTPError("GTP engine process has exited.")
         self.proc.stdin.write(command.strip() + "\n")
         self.proc.stdin.flush()
 
+        # read lines until the blank line that terminates the response
         lines = []
         while True:
             raw = self.proc.stdout.readline()
@@ -53,20 +51,23 @@ class GTPEngine:
             line = raw.rstrip("\n").rstrip("\r")
             if line == "":
                 if lines:
-                    break          # blank line terminates the response
-                continue           # ignore leading blank lines
+                    break          
+                continue           
             lines.append(line)
 
-        status = lines[0][0]                       # '=' or '?'
-        first_body = lines[0][1:].lstrip()         # strip status char (+ optional id/space)
+        # parse the status character and reassemble the result
+        status = lines[0][0]                       
+        first_body = lines[0][1:].lstrip()         
         result = "\n".join([first_body] + lines[1:]).strip()
         if status == "?":
             raise GTPError(f"GTP command '{command}' failed: {result}")
         return result
 
+    # whether the engine subprocess is still running
     def alive(self):
         return self.proc.poll() is None
 
+    # ask the engine to quit then terminate the process and close the log file
     def close(self):
         try:
             if self.proc.poll() is None:

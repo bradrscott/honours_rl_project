@@ -1,67 +1,64 @@
-# ── GNU Go engine wrapper for PettingZoo go_v5 ────────────────────
-# Wraps a GTP GNU Go process and translates between go_v5 action indices
-# and GTP vertices, so GNU Go can play inside a go_v5 game.
+# GNU Go engine wrapper for PettingZoo go_v5.
 #
-# COORDINATE MAPPING (the critical, must-be-correct part):
-#   go_v5 action a (0 .. N*N-1): row r = a // N, col c = a % N, with
-#     r = 0 at the TOP of the board, c = 0 at the LEFT.  a == N*N is PASS.
-#   GTP vertex: column letter (A..T, skipping 'I') from the LEFT, and a row
-#     number 1..N counted from the BOTTOM.
-#   => column letter = LETTERS[c];  GTP row number = N - r.
-#
-# This assumes go_v5 indexes rows top-to-bottom. If the board-sync check in
-# verify_sync() ever fails on row orientation, flip to `row = r + 1` here and
-# `r = N - row` in vertex->action (see the commented alternative).
+# Wraps a GTP GNU Go process and translates between the two systems' move
+# formats, so GNU Go can play inside a go_v5 game - go_v5 numbers every board
+# point, while GNU Go's GTP protocol names each point with a column letter
+# and a row number counted from the opposite edge. action_to_vertex() and
+# vertex_to_action() below do that conversion both ways.
 
+
+# the low-level GTP process wrapper (GTPEngine) and its error type
 from gnugo.gtp import GTPEngine, GTPError
 
-LETTERS = "ABCDEFGHJKLMNOPQRSTUVWXYZ"   # GTP columns skip 'I'
+# GTP column letters, left to right — skips 'I' (GTP's own convention)
+LETTERS = "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 
 
 class GnuGo:
+
+    # launch and configure the GTP process for one colour/board/komi
     def __init__(self, board_size, komi, level=10, color="black",
                  binary="gnugo", chinese_rules=True, stderr_log=None):
-        self.n      = board_size
-        self.komi   = komi
-        self.color  = color                      # colour GNU Go plays
-        self.opp    = "white" if color == "black" else "black"
+        self.n = board_size
+        self.komi = komi
+        self.color = color                      
+        self.opp = "white" if color == "black" else "black"
         self.binary = binary
         self.stderr_log = stderr_log
         self.args = ["--mode", "gtp", "--level", str(level)]
-        if chinese_rules:                        # area scoring, matches go_v5
+        if chinese_rules:                        
             self.args.append("--chinese-rules")
         self._start()
 
+    # start (or restart) the GTP process and set up the board
     def _start(self):
         self.gtp = GTPEngine(self.binary, self.args, stderr_log=self.stderr_log)
         self.gtp.send(f"boardsize {self.n}")
         self.gtp.send(f"komi {self.komi}")
         self.gtp.send("clear_board")
-        # Use kgs-genmove_cleanup if available: it makes GNU Go keep capturing
-        # dead stones (instead of passing on a "won by normal scoring" board)
-        # so the final position is settled the way go_v5 scores it (Tromp-Taylor
-        # area, no dead-stone removal). Without this, GNU Go passes early and
-        # loses close games it "won" — worst vs solid/early-passing bots.
+
+        # use the cleanup move command if available, so the final board matches how go_v5 actually scores it
         try:
             self.cleanup = "kgs-genmove_cleanup" in self.gtp.send("list_commands").split()
         except GTPError:
             self.cleanup = False
 
+    # relaunch the engine after a crash (fresh board)
     def restart(self):
-        """Relaunch the engine after a crash (fresh board)."""
         try:
             self.gtp.close()
         except Exception:
             pass
         self._start()
 
-    # -- coordinate translation ------------------------------------
+    # go_v5 action index -> GTP vertex string
     def action_to_vertex(self, a):
         if a == self.n * self.n:
             return "pass"
         r, c = divmod(a, self.n)
-        return f"{LETTERS[c]}{self.n - r}"        # row: top(r=0) -> GTP N
+        return f"{LETTERS[c]}{self.n - r}"        
 
+    # GTP vertex string -> go_v5 action index 
     def vertex_to_action(self, v):
         v = v.strip()
         low = v.lower()
@@ -71,33 +68,30 @@ class GnuGo:
             return "resign"
         c = LETTERS.index(v[0].upper())
         row = int(v[1:])
-        r = self.n - row                          # inverse of above
+        r = self.n - row                          
         return r * self.n + c
 
-    # -- play --------------------------------------------------------
+    # clear the board for a new game (engine process stays alive)
     def reset(self):
         self.gtp.send("clear_board")
 
+    # tell GNU Go the opponent (heuristic) just played an action
     def play_opponent(self, action):
-        """Tell GNU Go the opponent (heuristic) just played `action`."""
         self.gtp.send(f"play {self.opp} {self.action_to_vertex(action)}")
 
+    # ask GNU Go for its move (a go_v5 action int, or resign)
     def genmove(self):
-        """Ask GNU Go for its move. Returns a go_v5 action int, or 'resign'.
-        Uses kgs-genmove_cleanup when available so GNU Go settles the position
-        (captures dead stones) rather than passing on a normally-won board."""
         cmd = "kgs-genmove_cleanup" if getattr(self, "cleanup", False) else "genmove"
         return self.vertex_to_action(self.gtp.send(f"{cmd} {self.color}"))
 
-    # -- verification helpers --------------------------------------
+    # set of go_v5 actions occupied by colour per GNU Go's board
     def stones(self, colour):
-        """Set of go_v5 actions occupied by `colour` per GNU Go's board."""
         resp = self.gtp.send(f"list_stones {colour}")
         return {self.vertex_to_action(v) for v in resp.split()} if resp else set()
 
+    # Raise if GNU Go's board disagrees with the given go_v5 stone sets.
+    # This is the guard that catches any coordinate-mapping error.
     def verify_sync(self, black_actions, white_actions):
-        """Raise if GNU Go's board disagrees with the given go_v5 stone sets.
-        This is the guard that catches any coordinate-mapping error."""
         gb, gw = self.stones("black"), self.stones("white")
         if gb != set(black_actions) or gw != set(white_actions):
             raise RuntimeError(
@@ -106,8 +100,10 @@ class GnuGo:
                 f"  white gnugo={sorted(gw)} vs go_v5={sorted(white_actions)}"
             )
 
+    # human-readable board dump from GNU Go 
     def showboard(self):
         return self.gtp.send("showboard")
 
+    # terminate the GTP process
     def close(self):
         self.gtp.close()
