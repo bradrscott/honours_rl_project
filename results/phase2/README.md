@@ -18,7 +18,7 @@ A run folder is named `<A>-phase2-<magnitude>-<frequency>[-s<seed>]`, e.g.
 `corner-phase2-low-f1` or `greedy-phase2-high-f2-s2`.
 
 - `<A>` — the pre-shift opponent the run resumes from (the Phase-1 checkpoint).
-- `<magnitude>` — how far the shift moves: `low` = corner→edge, `med` = corner→defensive, `high` = greedy→defensive.
+- `<magnitude>` — how far the shift moves: `low` = corner to edge, `med` = corner to defensive, `high` = greedy→defensive.
 - `<frequency>` — how often the opponent switches: `f1` single (2 switches), `f2` periodic (4), `f3` frequent (10).
 - `-s<seed>` — random seed. `-s1`, `-s2` are the other two seeds. Three seeds per condition.
 
@@ -34,6 +34,9 @@ The columns with their meanings below:
 `rolling` - Rolling win rate over the last 100 games (0–1). The recovery signal. 
 `shift_idx` - Which shift-schedule segment the game is in: 0 before the first shift, 1 after the first switch, 2 after the second 
 `games_since_shift` - Games played since the last opponent switch (resets to 0 at each shift). 
+
+All three summary files below are computed from the raw per-game data in
+`games.csv` — the `win` outcomes and the `rolling` win rate they produce. Every recovery metric comes from that rolling signal measured against the pre-shift baseline (its value just before a shift): recovery time is how long the rolling win rate stays below the 0.8×baseline band, dip depth is how far it falls below baseline at its lowest point (`baseline − min_rolling`) and adaptation cost is the area under that dip — the shortfall below baseline summed over the whole post-shift segment (reported in games and in thousands of steps).
 
 ## `recovery_table.csv` — per-shift recovery (one row per run × shift)
 

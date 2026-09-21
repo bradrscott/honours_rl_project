@@ -16,6 +16,15 @@ wandb/
 # paper drafts, LaTeX source and materials — kept locally, not in the code repo
 paperInfo/
 
+# one-off analysis/figure-generation scripts — kept locally for reference, outside
+# the tracked folders so the repo and the Amathuba zip submission match; the raw
+# data (games.csv, results/) and the paper's written methodology are the record of truth
+/analyze_phase2.py
+paperMaterials/
+
+# scratch personal notes — kept locally, not part of the submission
+/notes.txt
+
 # python + macOS cruft
 __pycache__/
 *.pyc
