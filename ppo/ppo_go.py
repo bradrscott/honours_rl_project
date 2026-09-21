@@ -39,9 +39,9 @@ N_ACTIONS = BOARD_SIZE * BOARD_SIZE + 1
 
 # environment wrapper — single-agent view of two-player Go (our agent is
 # black, the opponent is white).
-# Reward handling: env.last() returns the reward for whichever agent's turn
+# Reward handling - env.last() returns the reward for whichever agent's turn
 # is next, not necessarily the agent that just moved — so at a game-ending
-# move it can silently return the OPPONENT's reward instead of ours. We avoid
+# move it can silently return the opponent's reward instead of ours. We avoid
 # this by always reading env.rewards["black_0"] directly, which looks up our
 # agent's own reward by name and is correct no matter whose turn is next.
 class GoEnv:
@@ -144,7 +144,7 @@ class GoEnv:
 
 
 
-# ACTOR-CRITIC NETWORK — shared CNN trunk, separate policy/value heads.
+# Actor-Critic network — shared CNN trunk, separate policy/value heads.
 # Orthogonal weight initialisation for Linear/Convolutional layers with the
 # bias zeroed. 
 # keeps the weight matrix's rows independent of each other (like a scaled rotation),

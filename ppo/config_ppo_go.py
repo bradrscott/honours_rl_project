@@ -34,23 +34,23 @@ SEED = int(os.environ.get("SEED", 0))
 WANDB_PROJECT = "honours-rl-go"
 
 # PPO hyperparameters.
-LEARNING_RATE = 3e-4     # Adam learning rate
-N_STEPS = 2048     # transitions collected per update (rollout length)
-BATCH_SIZE = 256      # minibatch size
-N_EPOCHS = 4        # optimisation epochs per update
-GAMMA = 0.99     # discount factor
-GAE_LAMBDA = 0.95     # GAE(λ) trace decay
-CLIP_RANGE = 0.2      # PPO clip range (ε)
-ENT_COEF = 0.01     # entropy bonus (exploration incentive)
-VF_COEF = 0.5      # value-loss weight
-MAX_GRAD_NORM = 0.5      # gradient-norm clip
-TARGET_KL = 0.03     # early-stop an update if approx KL exceeds ~1.5× this
+LEARNING_RATE = 3e-4 # Adam learning rate
+N_STEPS = 2048 # transitions collected per update (rollout length)
+BATCH_SIZE = 256 # minibatch size
+N_EPOCHS = 4 # optimisation epochs per update
+GAMMA = 0.99 # discount factor
+GAE_LAMBDA = 0.95 # GAE(λ) trace decay
+CLIP_RANGE = 0.2 # PPO clip range (ε)
+ENT_COEF = 0.01 # entropy bonus (exploration incentive)
+VF_COEF = 0.5 # value-loss weight
+MAX_GRAD_NORM = 0.5 # gradient-norm clip
+TARGET_KL = 0.03 # early-stop an update if approx KL exceeds ~1.5× this
 
 # CNN feature.
-N_CHANNELS = 17       # observation planes (go_v5 encoding)
-CNN_FILTERS = 32       # conv filters per layer
-CNN_LAYERS = 3        # conv layers in the shared trunk
-HIDDEN_DIM = 128      # width of the shared FC layer after the conv trunk
+N_CHANNELS = 17 # observation planes (go_v5 encoding)
+CNN_FILTERS = 32 # conv filters per layer
+CNN_LAYERS = 3 # conv layers in the shared trunk
+HIDDEN_DIM = 128 # width of the shared FC layer after the conv trunk
 
 # Phase-1 training-curve win-rate smoothing window.
 WINDOW = 200
